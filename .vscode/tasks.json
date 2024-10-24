@@ -1,0 +1,56 @@
+{
+    "tasks": [
+        {
+            "label": "Build main",
+            "dependsOn": ["Create 'debug'", "Build main inside 'debug'"],
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "Build this test",
+            "dependsOn": ["Create 'debug'", "Build this test inside 'debug'"],
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "Create 'debug'",
+            "type": "shell",
+            "command": "mkdir",
+            "args": [
+                "-p",
+                "debug"
+            ]
+        },
+        {
+            "label": "Build main inside 'debug'",
+            "type": "cppbuild",
+            "command": "g++",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "-I",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/main.cpp",
+                "${workspaceFolder}/src/*.cpp",
+                "-o",
+                "${workspaceFolder}/debug/a.out"
+            ]
+        },
+        {
+            "label": "Build this test inside 'debug'",
+            "type": "cppbuild",
+            "command": "g++",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "-I",
+                "${workspaceFolder}/include",
+                "-I",
+                "${workspaceFolder}/src",
+                "${file}",
+                "${workspaceFolder}/src/*.cpp",
+                "-o",
+                "${workspaceFolder}/debug/a.out"
+            ]
+        }
+    ],
+    "version": "2.0.0"
+}

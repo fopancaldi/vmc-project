@@ -1,0 +1,34 @@
+{
+	"name": "Debian",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"C_Cpp.default.compilerPath": "/usr/bin/g++",
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash",
+						"args": []
+					}
+				}
+			},
+			"extensions": [
+				"donjayamanne.githistory",
+				"eamodio.gitlens",
+				"github.vscode-github-actions",
+				"mhutchie.git-graph",
+				"ms-azuretools.vscode-docker",
+				"ms-vscode.cpptools",
+				"ms-vscode.cpptools-extension-pack",
+				"ms-vscode.cmake-tools",
+				"mutantdino.resourcemonitor",
+				"wayou.vscode-todo-highlight",
+				"yzhang.markdown-all-in-one"
+			]
+		}
+	},
+	"remoteUser": "vscode"
+}

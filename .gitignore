@@ -1,0 +1,7 @@
+build/
+html/
+debug/
+a.out
+
+# To be removed
+.github/
