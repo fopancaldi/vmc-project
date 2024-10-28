@@ -9,12 +9,25 @@
 
 namespace vmcp {
 
-// TODO: Remove from the header and replace with 2 wrapper functions
-// Computes the energies using the VMC algorithm
-// Might be renamed if the name is misleading
-template <Dimension D, ParticNum N, class Wavefunction, class KinEnergy, class Potential>
-std::vector<Energy> VMCEnergies(Wavefunction const &, VarParams const &, KinEnergy const &, Potential const &,
-                                Bounds<D>, RandomGenerator &);
+// Computes the energies using the VMC algorithm and the analytical formula for the derivative
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
+std::vector<Energy> VMCEnergies(Wavefunction const &, VarParams<V>, KinEnergy const &, Potential const &,
+                                Bounds<D>, int, RandomGenerator &);
+
+// Computes energy and variance using the VMC algorithm and the analytical formula for the derivative
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
+VMCResult VMCEnergy(Wavefunction const &, VarParams<V>, KinEnergy const &, Potential const &, Bounds<D>, int,
+                    RandomGenerator &);
+
+// Computes the energies using the VMC algorithm and estimating the derivative numerically
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
+std::vector<Energy> VMCEnergies(Wavefunction const &, VarParams<V>, FPType, Mass, Potential const &,
+                                Bounds<D>, int, RandomGenerator &);
+
+// Computes energy and variance using the VMC algorithm and estimating the derivative numerically
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
+VMCResult VMCEnergy(Wavefunction const &, VarParams<V>, FPType, Mass, Potential const &, Bounds<D>, int,
+                    RandomGenerator &);
 
 } // namespace vmcp
 

@@ -32,6 +32,8 @@ using RandomGenerator = std::mt19937;
 using Dimension = UIntType;
 // Number of particles
 using ParticNum = UIntType;
+// Number of variational parameters
+using VarParNum = UIntType;
 
 // 'Wrapper' structs (so that it is impossible to add two objects of different types)
 //
@@ -47,7 +49,12 @@ using Positions = std::array<Position<D>, N>;
 struct VarParam {
     FPType val;
 };
-using VarParams = std::vector<VarParam>;
+template <VarParNum V>
+using VarParams = std::array<VarParam, V>;
+// Mass
+struct Mass {
+    FPType val;
+};
 // Variational Monte Carlo algorithm result
 struct Energy {
     FPType val;
@@ -70,13 +77,13 @@ template <Dimension D>
 using Bounds = std::array<Bound, D>;
 
 // To (only) be used in a static assertion
-template <Dimension D, ParticNum N, class Function>
+template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunction() {
-    return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams>;
+    return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }
-template <Dimension D, ParticNum N, class Function>
+template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsKinEnergy() {
-    return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams>;
+    return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }
 template <Dimension D, ParticNum N, class Function>
 constexpr bool IsPotential() {
