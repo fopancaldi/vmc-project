@@ -175,10 +175,10 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
 VMCResult AvgAndVar_(std::vector<Energy> const &v) {
     assert(v.size() > 1);
     // TODO: Maybe define operator+ for the energies?
-    Energy const cumul = std::accumulate(v.begin(), v.end(), Energy(0),
+    Energy const cumul = std::accumulate(v.begin(), v.end(), Energy{0},
                                          [](Energy e1, Energy e2) { return Energy{e1.val + e2.val}; });
     EnVariance const cumulSq =
-        std::accumulate(v.begin(), v.end(), EnVariance(0),
+        std::accumulate(v.begin(), v.end(), EnVariance{0},
                         [](EnVariance ev, Energy e) { return EnVariance{ev.val + e.val * e.val}; });
     auto const size = v.size();
     return VMCResult{cumul.val / size, (cumulSq.val / size - std::pow(cumul.val / size, 2)) / (size - 1)};
