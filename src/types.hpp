@@ -9,7 +9,6 @@
 #include <cassert>
 #include <random>
 #include <type_traits>
-#include <vector>
 
 namespace vmcp {
 
