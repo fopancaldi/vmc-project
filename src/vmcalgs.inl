@@ -17,7 +17,7 @@ namespace vmcp {
 
 // Constants
 constexpr FPType hbar = 1; // Natural units
-constexpr IntType pointsSearchPeak = 100;
+constexpr IntType numSamplesForPeakSearch = 100;
 // TODO: Rename this one
 constexpr IntType boundSteps = 100;
 constexpr IntType thermalizationMoves = 100;
@@ -41,7 +41,7 @@ Positions<D, N> FindPeak_(Potential pot, Bounds<D> bounds, IntType points, Rando
     for (IntType i = 0; i != points; ++i) {
         Positions<D, N> newPoss;
         // TODO: Is it really necessary to specify Position<D>?
-        for (Position<D> &p : newPoss) {
+        for (Position<D> p : newPoss) {
             std::transform(bounds.begin(), bounds.end(), p.begin(), [&unif, &gen](Bound b) {
                 return Coordinate{b.lower + unif(gen) * (b.upper - b.lower)};
             });
@@ -60,22 +60,103 @@ UIntType MetropolisUpdate_(Wavefunction const &psi, VarParams<V> params, Positio
                            RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
-    UIntType succesfulUpdates = 0u;
-    for (Position<D> &p : poss) {
-        Position const oldPos = p;
+    UIntType successfulUpdates;
+    for (Position<D> p : poss) {
+        Position<D> const oldPos = p;
         FPType const oldPsi = psi(poss, params);
-        std::uniform_real_distribution<FPType> unifDist(0, 1);
+        // Using float avoids narrowing, whatever FPType is
+        std::uniform_real_distribution<FPType> unifDist(-0.5f, 0.5f);
         std::transform(p.begin(), p.end(), p.begin(), [&gen, &unifDist, step](Coordinate c) {
-            return Coordinate{c.val + (unifDist(gen) - FPType{0.5f}) * step};
+            return Coordinate{c.val + unifDist(gen) * step};
         });
         if (unifDist(gen) > std::pow(psi(poss, params) / oldPsi, 2)) {
             p = oldPos;
 
         } else {
-            ++succesfulUpdates;
+            ++successfulUpdates;
         }
     }
-    return succesfulUpdates;
+    return successfulUpdates;
+}
+
+// Should be hidden from the user
+// Computes the drift force using its analytic expression
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
+void DriftForceAnalytic_(Wavefunction const &psi, VarParams<V> params, Positions<D, N> poss,
+                         Position<D> &driftForce) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+
+    FPType alpha = params[0];
+    for (int i = 0; i < D; ++i) {
+        driftForce[i].val = -4 * alpha * poss[i].val;
+    }
+}
+
+// Should be hidden from the user
+// Computes the position of the particles when the n-th one is moved by delta along the d-th direction (with
+// both n and d starting from 0)
+template <Dimension D, ParticNum N>
+Positions<D, N> PerturbPos_(Positions<D, N> const &poss, Dimension d, ParticNum n, Coordinate delta) {
+    assert(d < D);
+    assert(n < N);
+    Positions<D, N> result = poss;
+    // TODO: Maybe define operator+= for coordinates?
+    result[n][d].val += delta.val;
+    return result;
+}
+
+// Should be hidden from the user
+// Computes the drift force by numerically estimating the derivative of the wavefunction
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
+void DriftForceNumeric_(Wavefunction const &psi, VarParams<V> params, FPType derivativeStep,
+                        Positions<D, N> poss, Position<D> &driftForce) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+    for (ParticNum n = 0u; n != N; ++n) {
+        for (Dimension d = 0u; d != D; ++d) {
+            driftForce[d] = 2 *
+                            (psi(PerturbPos_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                             psi(PerturbPos_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
+                            (derivativeStep * psi(poss, params));
+        }
+    }
+}
+
+// Updates the wavefunction with the Importance Sampling algorithms and outputs the number of succesful
+// updates
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
+UIntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params, Positions<D, N> &poss,
+                                   FPType step, FPType deltaT, RandomGenerator &gen) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+
+    UIntType successfulUpdates;
+    for (Position<D> p : poss) {
+        Position<D> const oldPos = p;
+        FPType const oldPsi = psi(poss, params);
+        Position<D> driftForce;
+        DriftForceAnalytic_(psi, poss, params, driftForce);
+        std::normal_distribution<FPType> normalDist(0.0, 1.0); // Gaussian noise
+        std::transform(p.begin(), p.end(), driftForce.begin(), p.begin(),
+                       [&gen, &normalDist, step, deltaT](Coordinate c, Coordinate f) {
+                           return Coordinate{c.val + f.val * deltaT + normalDist(gen) * std::sqrt(deltaT)};
+                       });
+        FPType const newPsi = psi(poss, params);
+        Position<D> newDriftForce;
+        DriftForceAnalytic_(psi, poss, params, newDriftForce);
+        FPType const forwardProb =
+            std::exp(-0.5 * deltaT *
+                     std::inner_product(driftForce.begin(), driftForce.end(), driftForce.begin(), 0.0));
+        FPType const backwardProb = std::exp(
+            -0.5 * deltaT *
+            std::inner_product(newDriftForce.begin(), newDriftForce.end(), newDriftForce.begin(), 0.0));
+        FPType const acceptanceRatio = (newPsi * newPsi * backwardProb) / (oldPsi * oldPsi * forwardProb);
+        std::uniform_real_distribution<FPType> unifDist(0.0f, 1.0f);
+        if (unifDist(gen) < acceptanceRatio) {
+            ++successfulUpdates;
+        } else {
+            p = oldPos;
+        }
+    }
+    return successfulUpdates;
 }
 
 // Should be hidden from the user
@@ -90,20 +171,6 @@ Energy LocalEnergyAnalytic_(Wavefunction const &psi, VarParams<V> params, KinEne
     return Energy{kin(poss, params) / psi(poss, params) + pot(poss)};
 }
 
-// TODO: Rename this
-// Should be hidden from the user
-// Computes the position of the particles when the n-th one is moved by delta along the d-th direction (with
-// both n and d starting from 0)
-template <Dimension D, ParticNum N>
-Positions<D, N> AddTo_(Positions<D, N> const &poss, Dimension d, ParticNum n, Coordinate delta) {
-    assert(d < D);
-    assert(n < N);
-    Positions<D, N> result = poss;
-    // TODO: Maybe define operator+= for coordinates?
-    result[n][d].val += delta.val;
-    return result;
-}
-
 // Should be hidden from the user
 // Computes the local energy by numerically estimating the derivative of the wavefunction
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
@@ -116,11 +183,11 @@ Energy LocalEnergyNumeric_(Wavefunction const &psi, VarParams<V> params, FPType 
     // TODO: Maybe redo this without the indices? Open to suggestions
     for (ParticNum n = 0u; n != N; ++n) {
         for (Dimension d = 0u; d != D; ++d) {
-            result.val +=
-                -std::pow(hbar, 2) / (2 * mass.val) *
-                (psi(AddTo_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) - 2 * psi(poss, params) +
-                 psi(AddTo_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
-                std::pow(derivativeStep, 2);
+            result.val += -std::pow(hbar, 2) / (2 * mass.val) *
+                          (psi(PerturbPos_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                           2 * psi(poss, params) +
+                           psi(PerturbPos_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
+                          std::pow(derivativeStep, 2);
         }
     }
     return result;
@@ -142,8 +209,8 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
 
     std::vector<Energy> result;
 
-    // Step 1: Find a good starting point, it the sense that it easy to move away from
-    Positions<D, N> const peak = FindPeak_<D, N>(pot, bounds, pointsSearchPeak, gen);
+    // Step 1: Find a good starting point, in the sense that it's easy to move away from
+    Positions<D, N> const peak = FindPeak_<D, N>(pot, bounds, numSamplesForPeakSearch, gen);
 
     // Step 2: Choose the step
     Bound const smallestBound = *(std::min_element(
@@ -175,13 +242,12 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
 VMCResult AvgAndVar_(std::vector<Energy> const &v) {
     assert(v.size() > 1);
     // TODO: Maybe define operator+ for the energies?
-    Energy const cumul = std::accumulate(v.begin(), v.end(), Energy{0},
-                                         [](Energy e1, Energy e2) { return Energy{e1.val + e2.val}; });
-    EnVariance const cumulSq =
-        std::accumulate(v.begin(), v.end(), EnVariance{0},
-                        [](EnVariance ev, Energy e) { return EnVariance{ev.val + e.val * e.val}; });
-    auto const size = v.size();
-    return VMCResult{cumul.val / size, (cumulSq.val / size - std::pow(cumul.val / size, 2)) / (size - 1)};
+    Energy cumul = std::accumulate(v.begin(), v.end(), Energy(0),
+                                   [](Energy e1, Energy e2) { return Energy{e1.val + e2.val}; });
+    EnVariance cumulSq = std::accumulate(v.begin(), v.end(), EnVariance(0), [](EnVariance ev, Energy e) {
+        return EnVariance{ev.val + e.val * e.val};
+    });
+    return VMCResult{cumul.val / v.size(), cumulSq.val / (v.size() - 1)};
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
