@@ -41,7 +41,7 @@ Positions<D, N> FindPeak_(Potential pot, Bounds<D> bounds, IntType points, Rando
     for (IntType i = 0; i != points; ++i) {
         Positions<D, N> newPoss;
         // TODO: Is it really necessary to specify Position<D>?
-        for (Position p : newPoss) {
+        for (Position<D> &p : newPoss) {
             std::transform(bounds.begin(), bounds.end(), p.begin(), [&unif, &gen](Bound b) {
                 return Coordinate{b.lower + unif(gen) * (b.upper - b.lower)};
             });
@@ -60,14 +60,13 @@ UIntType MetropolisUpdate_(Wavefunction const &psi, VarParams<V> params, Positio
                            RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
-    UIntType succesfulUpdates;
-    for (Position p : poss) {
+    UIntType succesfulUpdates = 0u;
+    for (Position<D> &p : poss) {
         Position const oldPos = p;
         FPType const oldPsi = psi(poss, params);
-        // Using float avoids narrowing, whatever FPType is
-        std::uniform_real_distribution<FPType> unifDist(-0.5f, 0.5f);
+        std::uniform_real_distribution<FPType> unifDist(0, 1);
         std::transform(p.begin(), p.end(), p.begin(), [&gen, &unifDist, step](Coordinate c) {
-            return Coordinate{c.val + unifDist(gen) * step};
+            return Coordinate{c.val + (unifDist(gen) - FPType{0.5f}) * step};
         });
         if (unifDist(gen) > std::pow(psi(poss, params) / oldPsi, 2)) {
             p = oldPos;
@@ -176,12 +175,13 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
 VMCResult AvgAndVar_(std::vector<Energy> const &v) {
     assert(v.size() > 1);
     // TODO: Maybe define operator+ for the energies?
-    Energy cumul = std::accumulate(v.begin(), v.end(), Energy(0),
-                                   [](Energy e1, Energy e2) { return Energy{e1.val + e2.val}; });
-    EnVariance cumulSq = std::accumulate(v.begin(), v.end(), EnVariance(0), [](EnVariance ev, Energy e) {
-        return EnVariance{ev.val + e.val * e.val};
-    });
-    return VMCResult{cumul.val / v.size(), cumulSq.val / (v.size() - 1)};
+    Energy const cumul = std::accumulate(v.begin(), v.end(), Energy(0),
+                                         [](Energy e1, Energy e2) { return Energy{e1.val + e2.val}; });
+    EnVariance const cumulSq =
+        std::accumulate(v.begin(), v.end(), EnVariance(0),
+                        [](EnVariance ev, Energy e) { return EnVariance{ev.val + e.val * e.val}; });
+    auto const size = v.size();
+    return VMCResult{cumul.val / size, (cumulSq.val / size - std::pow(cumul.val / size, 2)) / (size - 1)};
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
