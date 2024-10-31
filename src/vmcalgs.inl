@@ -24,12 +24,15 @@ constexpr IntType thermalizationMoves = 100;
 // TODO: Rename this one, also find if it is really 10 * thermalization moves
 constexpr IntType movesForgetICs = 10 * thermalizationMoves;
 // constexpr IntType vmcMoves = 10;
+constexpr FPType minPsi = 1e-6f;
 
 // Should be hidden from the user
 // Computes the (approximate) peak of the potential
 // In practice, choose some points in the integration domain and see where the potential is largest
-template <Dimension D, ParticNum N, class Potential>
-Positions<D, N> FindPeak_(Potential pot, Bounds<D> bounds, IntType points, RandomGenerator &gen) {
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
+Positions<D, N> FindPeak_(Wavefunction const &psi, VarParams<V> params, Potential const &pot,
+                          Bounds<D> bounds, IntType points, RandomGenerator &gen) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsPotential<D, N, Potential>());
 
     Position<D> center;
@@ -46,7 +49,9 @@ Positions<D, N> FindPeak_(Potential pot, Bounds<D> bounds, IntType points, Rando
                 return Coordinate{b.lower + unif(gen) * (b.upper - b.lower)};
             });
         }
-        if (pot(newPoss) > pot(result)) {
+        // TODO: Explain better
+        // The requirement ... > minPsi avoids having psi(...) = nan, which breaks the Metropolis updates
+        if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi)) {
             result = newPoss;
         }
     }
@@ -143,7 +148,7 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
     std::vector<Energy> result;
 
     // Step 1: Find a good starting point, it the sense that it easy to move away from
-    Positions<D, N> const peak = FindPeak_<D, N>(pot, bounds, pointsSearchPeak, gen);
+    Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, pointsSearchPeak, gen);
 
     // Step 2: Choose the step
     Bound const smallestBound = *(std::min_element(
