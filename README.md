@@ -32,3 +32,8 @@ There is an error message while building the container:
  
 It is completely harmless.
 See the related [issue](https://github.com/microsoft/vscode-cpptools/issues/6450).
+
+# TODO:
+
+1. Find a better way of estimating the constexpr constants, like `thermalizationMoves`.
+2. `int` -> `float` is NOT a promotion! Change the program accordingly.
