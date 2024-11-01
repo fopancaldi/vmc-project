@@ -81,6 +81,10 @@ constexpr bool IsWavefunction() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }
 template <Dimension D, ParticNum N, VarParNum V, class Function>
+constexpr bool IsGradient() {
+    return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
+}
+template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsKinEnergy() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }

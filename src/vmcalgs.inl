@@ -17,22 +17,20 @@ namespace vmcp {
 
 // Constants
 constexpr FPType hbar = 1; // Natural units
-constexpr IntType pointsSearchPeak = 100;
+constexpr IntType numSamplesForPeakSearch = 100;
+constexpr FPType deltaT = 0.005;
 // TODO: Rename this one
 constexpr IntType boundSteps = 100;
 constexpr IntType thermalizationMoves = 100;
 // TODO: Rename this one, also find if it is really 10 * thermalization moves
 constexpr IntType movesForgetICs = 10 * thermalizationMoves;
 // constexpr IntType vmcMoves = 10;
-constexpr FPType minPsi = 1e-6f;
 
 // Should be hidden from the user
 // Computes the (approximate) peak of the potential
 // In practice, choose some points in the integration domain and see where the potential is largest
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-Positions<D, N> FindPeak_(Wavefunction const &psi, VarParams<V> params, Potential const &pot,
-                          Bounds<D> bounds, IntType points, RandomGenerator &gen) {
-    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+template <Dimension D, ParticNum N, class Potential>
+Positions<D, N> FindPeak_(Potential pot, Bounds<D> bounds, IntType points, RandomGenerator &gen) {
     static_assert(IsPotential<D, N, Potential>());
 
     Position<D> center;
@@ -49,9 +47,7 @@ Positions<D, N> FindPeak_(Wavefunction const &psi, VarParams<V> params, Potentia
                 return Coordinate{b.lower + unif(gen) * (b.upper - b.lower)};
             });
         }
-        // TODO: Explain better
-        // The requirement ... > minPsi avoids having psi(...) = nan, which breaks the Metropolis updates
-        if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi)) {
+        if (pot(newPoss) > pot(result)) {
             result = newPoss;
         }
     }
@@ -84,6 +80,92 @@ UIntType MetropolisUpdate_(Wavefunction const &psi, VarParams<V> params, Positio
 }
 
 // Should be hidden from the user
+// Computes the drift force using its analytic expression
+template <Dimension D, ParticNum N, VarParNum V, class FirstDerivative, class Wavefunction>
+Position<D> DriftForceAnalytic_(Wavefunction const &psi, VarParams<V> params, FirstDerivative const &grad,
+                                Positions<D, N> poss) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+    static_assert(IsGradient<D, N, V, FirstDerivative>());
+    return (2 * grad / psi(poss, params));
+}
+
+// Should be hidden from the user
+// Computes the position of the particles when the n-th one is moved by delta along the d-th direction (with
+// both n and d starting from 0)
+template <Dimension D, ParticNum N>
+Positions<D, N> PerturbPos_(Positions<D, N> const &poss, Dimension d, ParticNum n, Coordinate delta) {
+    assert(d < D);
+    assert(n < N);
+    Positions<D, N> result = poss;
+    // TODO: Maybe define operator+= for coordinates?
+    result[n][d].val += delta.val;
+    return result;
+}
+
+// Should be hidden from the user
+// Computes the drift force by numerically estimating the derivative of the wavefunction
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
+Position<D> DriftForceNumeric_(Wavefunction const &psi, VarParams<V> params, FPType derivativeStep,
+                               Positions<D, N> poss) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+    Position<D> driftForce;
+    for (ParticNum n = 0u; n != N; ++n) {
+        for (Dimension d = 0u; d != D; ++d) {
+            driftForce[d] = 2 *
+                            (psi(PerturbPos_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                             psi(PerturbPos_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
+                            (derivativeStep * psi(poss, params));
+        }
+    }
+}
+
+// Updates the wavefunction with the Importance Sampling algorithms and outputs the number of succesful
+// updates
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
+IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params, Mass mass,
+                                  Positions<D, N> &poss, FPType step, RandomGenerator &gen) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+
+    IntType successfulUpdates;
+    for (Position<D> &p : poss) {
+        Position<D> const oldPos = p;
+        FPType const oldPsi = psi(poss, params);
+        Position const driftForce = DriftForceAnalytic_(psi, poss, params);
+        std::normal_distribution<FPType> normalDist(0.0f, 1.0f);
+        std::transform(p.begin(), p.end(), driftForce.begin(), p.begin(),
+                       [&gen, &normalDist, step](Coordinate c, Coordinate f) {
+                           return Coordinate{c.val + f.val * deltaT + normalDist(gen) * std::sqrt(deltaT)};
+                       });
+        FPType const newPsi = psi(poss, params);
+        Position<D> newDriftForce = DriftForceAnalytic_(psi, poss, params);
+        FPType const forwardProb =
+            std::exp(-std::pow(hbar, 2) / (2 * mass.val * deltaT) *
+                     std::inner_product(
+                         poss.begin(), poss.end(), oldPos.begin(), driftForce.begin(), FPType{0.0f},
+                         std::plus<FPType>{}, [](FPType posVal, FPType oldPosVal, FPType driftForceVal) {
+                             FPType diff = posVal - oldPosVal - FPType{0.5f} * deltaT * driftForceVal;
+                             return diff * diff;
+                         }));
+        FPType const backwardProb =
+            std::exp(-std::pow(hbar, 2) / (2 * mass.val * deltaT) *
+                     std::inner_product(
+                         poss.begin(), poss.end(), oldPos.begin(), newDriftForce.begin(), FPType{0.0f},
+                         std::plus<FPType>{}, [](FPType posVal, FPType oldPosVal, FPType newdriftForceVal) {
+                             FPType diff = posVal - oldPosVal - FPType{0.5f} * deltaT * newdriftForceVal;
+                             return diff * diff;
+                         }));
+        FPType const acceptanceRatio = (newPsi * newPsi * backwardProb) / (oldPsi * oldPsi * forwardProb);
+        std::uniform_real_distribution<FPType> unifDist(0.0f, 1.0f);
+        if (unifDist(gen) < acceptanceRatio) {
+            ++successfulUpdates;
+        } else {
+            p = oldPos;
+        }
+    }
+    return successfulUpdates;
+}
+
+// Should be hidden from the user
 // Computes the local energy with the analytic formula for the derivative of the wavefunction
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
 Energy LocalEnergyAnalytic_(Wavefunction const &psi, VarParams<V> params, KinEnergy const &kin,
@@ -93,20 +175,6 @@ Energy LocalEnergyAnalytic_(Wavefunction const &psi, VarParams<V> params, KinEne
     static_assert(IsPotential<D, N, Potential>());
 
     return Energy{kin(poss, params) / psi(poss, params) + pot(poss)};
-}
-
-// TODO: Rename this
-// Should be hidden from the user
-// Computes the position of the particles when the n-th one is moved by delta along the d-th direction (with
-// both n and d starting from 0)
-template <Dimension D, ParticNum N>
-Positions<D, N> AddTo_(Positions<D, N> const &poss, Dimension d, ParticNum n, Coordinate delta) {
-    assert(d < D);
-    assert(n < N);
-    Positions<D, N> result = poss;
-    // TODO: Maybe define operator+= for coordinates?
-    result[n][d].val += delta.val;
-    return result;
 }
 
 // Should be hidden from the user
@@ -121,11 +189,11 @@ Energy LocalEnergyNumeric_(Wavefunction const &psi, VarParams<V> params, FPType 
     // TODO: Maybe redo this without the indices? Open to suggestions
     for (ParticNum n = 0u; n != N; ++n) {
         for (Dimension d = 0u; d != D; ++d) {
-            result.val +=
-                -std::pow(hbar, 2) / (2 * mass.val) *
-                (psi(AddTo_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) - 2 * psi(poss, params) +
-                 psi(AddTo_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
-                std::pow(derivativeStep, 2);
+            result.val += -std::pow(hbar, 2) / (2 * mass.val) *
+                          (psi(PerturbPos_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                           2 * psi(poss, params) +
+                           psi(PerturbPos_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
+                          std::pow(derivativeStep, 2);
         }
     }
     return result;
@@ -147,8 +215,8 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
 
     std::vector<Energy> result;
 
-    // Step 1: Find a good starting point, it the sense that it easy to move away from
-    Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, pointsSearchPeak, gen);
+    // Step 1: Find a good starting point, in the sense that it's easy to move away from
+    Positions<D, N> const peak = FindPeak_<D, N>(pot, bounds, numSamplesForPeakSearch, gen);
 
     // Step 2: Choose the step
     Bound const smallestBound = *(std::min_element(
