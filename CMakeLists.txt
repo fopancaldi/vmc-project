@@ -25,5 +25,5 @@ if (BUILD_TESTING)
 
       add_executable(test-vmc tests/test.cpp)
       target_include_directories(test-vmc PRIVATE src include)
-      add_test(NAME test-vmc COMMAND test)
+      add_test(NAME test-vmc COMMAND test-vmc)
 endif()
