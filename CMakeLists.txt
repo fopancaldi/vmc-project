@@ -21,7 +21,7 @@ if(BUILD_MAIN)
       target_include_directories(main-vmc PRIVATE src)
 endif()
 
-if (BUILD_TESTING)
+if(BUILD_TESTING)
       include(CTest)
       enable_testing()
 
