@@ -26,6 +26,16 @@ constexpr IntType movesForgetICs = 10 * thermalizationMoves;
 // constexpr IntType vmcMoves = 10;
 constexpr FPType minPsi = 1e-6f;
 
+// TODO: eps might be interpreted as an abbreviation for "epsilon"
+template <Dimension D, ParticNum N>
+std::vector<Energy> Energies(std::vector<EnAndPos<D, N>> const &eps) {
+    std::vector<Energy> result;
+    result.reserve(eps.size());
+    std::transform(eps.begin(), eps.end(), std::back_inserter(result),
+                   [](EnAndPos<D, N> const &ep) { return ep.energy; });
+    return result;
+}
+
 // Should be hidden from the user
 // Computes the (approximate) peak of the potential
 // In practice, choose some points in the integration domain and see where the potential is largest
@@ -136,16 +146,16 @@ Energy LocalEnergyNumeric_(Wavefunction const &psi, VarParams<V> params, FPType 
 // by either using the analytical formula for the derivative or estimating it numerically
 // Use the wrappers to select which method should be used
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
-std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> params, bool useAnalitycal,
-                                        KinEnergy const &kin, FPType derivativeStep, Mass mass,
-                                        Potential const &pot, Bounds<D> bounds, int numberEnergies,
-                                        RandomGenerator &gen) {
+std::vector<EnAndPos<D, N>> WrappedVMCEnAndPoss_(Wavefunction const &psi, VarParams<V> params,
+                                                 bool useAnalitycal, KinEnergy const &kin,
+                                                 FPType derivativeStep, Mass mass, Potential const &pot,
+                                                 Bounds<D> bounds, int numberEnergies, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsKinEnergy<D, N, V, KinEnergy>());
     static_assert(IsPotential<D, N, Potential>());
     assert(numberEnergies >= 0);
 
-    std::vector<Energy> result;
+    std::vector<EnAndPos<D, N>> result;
 
     // Step 1: Find a good starting point, it the sense that it easy to move away from
     Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, pointsSearchPeak, gen);
@@ -166,9 +176,10 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
             MetropolisUpdate_<D, N>(psi, params, poss, step, gen);
         }
         if (useAnalitycal) {
-            result.push_back(LocalEnergyAnalytic_<D, N>(psi, params, kin, pot, poss));
+            result.emplace_back(LocalEnergyAnalytic_<D, N>(psi, params, kin, pot, poss), poss);
         } else {
-            result.push_back(LocalEnergyNumeric_<D, N>(psi, params, derivativeStep, mass, pot, poss));
+            result.emplace_back(LocalEnergyNumeric_<D, N>(psi, params, derivativeStep, mass, pot, poss),
+                                poss);
         }
     }
 
@@ -190,23 +201,24 @@ VMCResult AvgAndVar_(std::vector<Energy> const &v) {
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
-std::vector<Energy> VMCEnergies(Wavefunction const &psi, VarParams<V> params, KinEnergy const &kin,
-                                Potential const &pot, Bounds<D> bounds, int numberEnergies,
-                                RandomGenerator &gen) {
-    return WrappedVMCEnergies_<D, N, V>(psi, params, true, kin, 0, Mass{0}, pot, bounds, numberEnergies, gen);
+std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &psi, VarParams<V> params, KinEnergy const &kin,
+                                         Potential const &pot, Bounds<D> bounds, int numberEnergies,
+                                         RandomGenerator &gen) {
+    return WrappedVMCEnAndPoss_<D, N, V>(psi, params, true, kin, 0, Mass{0}, pot, bounds, numberEnergies,
+                                         gen);
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
 VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> params, KinEnergy const &kin, Potential const &pot,
                     Bounds<D> bounds, int numberEnergies, RandomGenerator &gen) {
-    return AvgAndVar_(VMCEnergies<D, N, V>(psi, params, kin, pot, bounds, numberEnergies, gen));
+    return AvgAndVar_(Energies(VMCEnAndPoss<D, N, V>(psi, params, kin, pot, bounds, numberEnergies, gen)));
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-std::vector<Energy> VMCEnergies(Wavefunction const &psi, VarParams<V> params, FPType derivativeStep,
-                                Mass mass, Potential const &pot, Bounds<D> bounds, int numberEnergies,
-                                RandomGenerator &gen) {
-    return WrappedVMCEnergies_<D, N, V>(
+std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &psi, VarParams<V> params, FPType derivativeStep,
+                                         Mass mass, Potential const &pot, Bounds<D> bounds,
+                                         int numberEnergies, RandomGenerator &gen) {
+    return WrappedVMCEnAndPoss_<D, N, V>(
         psi, params, false, [](Positions<D, N>, VarParams<V>) { return FPType{0}; }, derivativeStep, mass,
         pot, bounds, numberEnergies, gen);
 }
@@ -215,7 +227,7 @@ template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Poten
 VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> params, FPType derivativeStep, Mass mass,
                     Potential const &pot, Bounds<D> bounds, int numberEnergies, RandomGenerator &gen) {
     return AvgAndVar_(
-        VMCEnergies<D, N, V>(psi, params, derivativeStep, mass, pot, bounds, numberEnergies, gen));
+        Energies(VMCEnAndPoss<D, N, V>(psi, params, derivativeStep, mass, pot, bounds, numberEnergies, gen)));
 }
 
 } // namespace vmcp
