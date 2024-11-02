@@ -11,7 +11,7 @@ namespace vmcp {
 
 // Computes the energies using the VMC algorithm and the analytical formula for the derivative
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
-std::vector<Energy> VMCEnergies(Wavefunction const &, VarParams<V>, KinEnergy const &, Potential const &,
+std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &, VarParams<V>, KinEnergy const &, Potential const &,
                                 Bounds<D>, int, RandomGenerator &);
 
 // Computes energy and variance using the VMC algorithm and the analytical formula for the derivative
@@ -21,7 +21,7 @@ VMCResult VMCEnergy(Wavefunction const &, VarParams<V>, KinEnergy const &, Poten
 
 // Computes the energies using the VMC algorithm and estimating the derivative numerically
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-std::vector<Energy> VMCEnergies(Wavefunction const &, VarParams<V>, FPType, Mass, Potential const &,
+std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &, VarParams<V>, FPType, Mass, Potential const &,
                                 Bounds<D>, int, RandomGenerator &);
 
 // Computes energy and variance using the VMC algorithm and estimating the derivative numerically
