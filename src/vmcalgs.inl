@@ -200,6 +200,97 @@ VMCResult AvgAndVar_(std::vector<Energy> const &v) {
     return VMCResult{cumul.val / size, (cumulSq.val / size - std::pow(cumul.val / size, 2)) / (size - 1)};
 }
 
+// TODO: Rename these ones
+constexpr IntType maxLoops = 100;
+constexpr FPType bestParsStep = 1e-2f;
+
+// Should be hidden from the user
+// Calculates the parameters of the wavefunction that minimize the energy
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class EnAndPossCalculator>
+VarParams<V> BestParameters_(VarParams<V> initialParams, Wavefunction const &psi,
+                             EnAndPossCalculator const &epCalc) {
+    static_assert(IsWavefunction<D, N, V, Wavefunction>());
+    static_assert(std::is_invocable_r_v<std::vector<EnAndPos<D, N>>, EnAndPossCalculator, VarParams<V>>);
+
+    VarParams<D> result = initialParams;
+
+    for (IntType i = 0; i != maxLoops; ++i) {
+        std::vector<EnAndPos<D, N>> const currentEnAndPoss = epCalc(result);
+        Energy const currentEnergy = AvgAndVar_(Energies(currentEnAndPoss)).energy;
+        // Will be filled with the energies obtained after moving a little in parameter space
+        std::array<Energy, D> energiesIncreasedParam;
+        std::array<Energy, D> energiesDecreasedParam;
+
+        // TODO: Can I avoid the index?
+        for (Dimension d = 0; d != D; ++d) {
+            // Obtain the new energies by using reweighting
+
+            VarParams<D> newParsIncr = result;
+            newParsIncr[d].val += bestParsStep;
+            // TODO: Rename, may be confused with energiesIncreasedParam
+            std::vector<Energy> energiesIncreasedPar;
+            std::transform(
+                currentEnAndPoss.begin(), currentEnAndPoss.end(), std::back_inserter(energiesIncreasedPar),
+                [&result, &newParsIncr, &psi](EnAndPos<D, N> const &ep) {
+                    return Energy{std::pow(psi(ep.positions, newParsIncr) / psi(ep.positions, result), 2) *
+                                  ep.energy.val};
+                });
+            FPType const normalizationIncr = std::accumulate(
+                currentEnAndPoss.begin(), currentEnAndPoss.end(), 0.f,
+                [&](FPType f, EnAndPos<D, N> const &ep) {
+                    return f + std::pow(psi(ep.positions, newParsIncr) / psi(ep.positions, result), 2);
+                });
+            energiesIncreasedParam[d] =
+                Energy{AvgAndVar_(energiesIncreasedPar).energy.val / normalizationIncr};
+
+            VarParams<D> newParsDecr = result;
+            newParsDecr[d].val -= bestParsStep;
+            // TODO: Rename, may be confused with energiesDecreasedParam
+            std::vector<Energy> energiesDecreasedPar;
+            std::transform(
+                currentEnAndPoss.begin(), currentEnAndPoss.end(), std::back_inserter(energiesDecreasedPar),
+                [&result, &newParsDecr, &psi](EnAndPos<D, N> const &ep) {
+                    return Energy{std::pow(psi(ep.positions, newParsDecr) / psi(ep.positions, result), 2) *
+                                  ep.energy.val};
+                });
+            FPType const normalizationDecr = std::accumulate(
+                currentEnAndPoss.begin(), currentEnAndPoss.end(), 0.f,
+                [&](FPType f, EnAndPos<D, N> const &ep) {
+                    return f + std::pow(psi(ep.positions, newParsDecr) / psi(ep.positions, result), 2);
+                });
+            energiesDecreasedParam[d] =
+                Energy{AvgAndVar_(energiesDecreasedPar).energy.val / normalizationDecr};
+        }
+
+        // Find the steepest descent direction, if it exists, and move accordingly
+        auto const smallestNewEnergyIncr =
+            std::min_element(energiesIncreasedParam.begin(), energiesIncreasedParam.end(),
+                             [](Energy e1, Energy e2) { return e1.val < e2.val; });
+        auto const smallestNewEnergyDecr =
+            std::min_element(energiesDecreasedParam.begin(), energiesDecreasedParam.end(),
+                             [](Energy e1, Energy e2) { return e1.val < e2.val; });
+        // TODO: Adjust the step size
+        if (((*smallestNewEnergyIncr).val >= currentEnergy.val) &&
+            ((*smallestNewEnergyDecr).val >= currentEnergy.val)) {
+            break;
+        } else {
+            if ((*smallestNewEnergyIncr).val < (*smallestNewEnergyDecr).val) {
+                auto const steepestDirection =
+                    std::distance(smallestNewEnergyIncr, energiesIncreasedParam.begin());
+                assert(steepestDirection >= 0);
+                result[static_cast<UIntType>(steepestDirection)].val += bestParsStep;
+            } else {
+                auto const steepestDirection =
+                    std::distance(smallestNewEnergyDecr, energiesDecreasedParam.begin());
+                assert(steepestDirection >= 0);
+                result[static_cast<UIntType>(steepestDirection)].val -= bestParsStep;
+            }
+        }
+    }
+
+    return result;
+}
+
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
 std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &psi, VarParams<V> params, KinEnergy const &kin,
                                          Potential const &pot, Bounds<D> bounds, int numberEnergies,
@@ -209,9 +300,15 @@ std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &psi, VarParams<V> p
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
-VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> params, KinEnergy const &kin, Potential const &pot,
-                    Bounds<D> bounds, int numberEnergies, RandomGenerator &gen) {
-    return AvgAndVar_(Energies(VMCEnAndPoss<D, N, V>(psi, params, kin, pot, bounds, numberEnergies, gen)));
+VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> initialParams, KinEnergy const &kin,
+                    Potential const &pot, Bounds<D> bounds, int numberEnergies, RandomGenerator &gen) {
+    auto const enPossCalculator{[&](VarParams<V> params) {
+        return VMCEnAndPoss<D, N, V>(psi, params, kin, pot, bounds, numberEnergies, gen);
+    }};
+    VarParams<V> const bestParams = BestParameters_<D, N, V>(initialParams, psi, enPossCalculator);
+
+    return AvgAndVar_(
+        Energies(VMCEnAndPoss<D, N, V>(psi, bestParams, kin, pot, bounds, numberEnergies, gen)));
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
