@@ -65,6 +65,13 @@ struct VMCResult {
     Energy energy;
     EnVariance variance;
 };
+// TODO: Rename if the function is renamed
+// WrappedVMVEnergies_ result
+template <Dimension D,ParticNum N>
+struct EnAndPos {
+    Energy energy;
+    Positions<D,N> positions;
+};
 // One-dimensional region of integration
 struct Bound {
     FPType lower;
