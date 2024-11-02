@@ -17,6 +17,10 @@ Theoretical and Numerical Aspects of Nuclear Physics project by Lorenzo Fabbri a
 13. In loops where it is necessary to use indices, use **only** `IntType` or `UIntType` as the index type.
 14. Use `i, j, ...` for `IntType` indices in loops, and `u, v, ...` for `UIntType` ones. Also do not initialize an `UInt` object with `0`!
 15. Use asserts to handle unplanned inputs, not exceptions. If someone wants to compute the average of -10 numbers, the program should collapse. So, avoid exceptins altogether.
+16. As always, object of primitive type should be passed by value and ones of derived type should be passed by `const &`. However
+    - `VarParams` objects are usually arrays of few `FPType` &rarr; pass by **value**.
+    - `RandomGenerator` objects must always be passed by **non-const reference**.
+17. Do **not** use `[=]` and `[&]` in the lambdas, I find it dangerous.
 
 # Coding remarks
 

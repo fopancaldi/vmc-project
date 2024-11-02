@@ -28,7 +28,7 @@ int main() {
         VarParams<1> const initialAlpha{0.5f};
 
         for (FPType alphaVal = 0.1f; alphaVal <= 2; alphaVal += FPType{0.05f}) {
-            VMCResult const vmcr = AvgAndVar_(Energies(VMCEnAndPoss<1, 1, 1>(
+            VMCResult const vmcr = AvgAndVar_(Energies_(VMCEnAndPoss<1, 1, 1>(
                 wavefHO, VarParams<1>{alphaVal}, kinHO, potHO, bounds, numberEnergies, gen)));
             std::cout << "alpha: " << std::setprecision(3) << alphaVal << "\tenergy: " << std::setprecision(5)
                       << vmcr.energy.val << " +/- " << std::sqrt(vmcr.variance.val) << '\n';
