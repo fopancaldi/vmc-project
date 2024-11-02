@@ -236,7 +236,7 @@ VarParams<V> BestParameters_(VarParams<V> initialParams, Wavefunction const &psi
                                   ep.energy.val};
                 });
             FPType const normalizationIncr = std::accumulate(
-                currentEnAndPoss.begin(), currentEnAndPoss.end(), 0.f,
+                currentEnAndPoss.begin(), currentEnAndPoss.end(), FPType{0},
                 [&](FPType f, EnAndPos<D, N> const &ep) {
                     return f + std::pow(psi(ep.positions, newParsIncr) / psi(ep.positions, result), 2);
                 });
@@ -254,7 +254,7 @@ VarParams<V> BestParameters_(VarParams<V> initialParams, Wavefunction const &psi
                                   ep.energy.val};
                 });
             FPType const normalizationDecr = std::accumulate(
-                currentEnAndPoss.begin(), currentEnAndPoss.end(), 0.f,
+                currentEnAndPoss.begin(), currentEnAndPoss.end(), FPType{0},
                 [&](FPType f, EnAndPos<D, N> const &ep) {
                     return f + std::pow(psi(ep.positions, newParsDecr) / psi(ep.positions, result), 2);
                 });
