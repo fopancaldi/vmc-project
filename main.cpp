@@ -12,7 +12,7 @@ constexpr std::array features = {true};
 int main() {
     // Feature 1:
     // Various tests with the harmonic oscillator
-    if (features[0]) {
+    if constexpr (features[0]) {
         // It is not normalized, but it doesn't matter
         auto const wavefHO{[](Positions<1, 1> x, VarParams<1> alpha) {
             return std::pow(std::numbers::e_v<FPType>, -alpha[0].val * x[0][0].val * x[0][0].val / 2);
