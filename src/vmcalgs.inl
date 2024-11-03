@@ -248,6 +248,7 @@ VarParams<V> BestParameters_(VarParams<V> initialParams, Wavefunction const &psi
                              EnAndPossCalculator const &epCalc) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(std::is_invocable_r_v<std::vector<EnAndPos<D, N>>, EnAndPossCalculator, VarParams<V>>);
+    static_assert(V != UIntType{0});
 
     // Use the gradiest descent with momentum algorithm, with termination condition: stop if the new
     // parameters are too close to the old ones
@@ -311,13 +312,18 @@ std::vector<EnAndPos<D, N>> VMCEnAndPoss(Wavefunction const &psi, VarParams<V> p
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class KinEnergy, class Potential>
 VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> initialParams, KinEnergy const &kin,
                     Potential const &pot, Bounds<D> bounds, int numberEnergies, RandomGenerator &gen) {
-    auto const enPossCalculator{[&](VarParams<V> params) {
-        return VMCEnAndPoss<D, N, V>(psi, params, kin, pot, bounds, numberEnergies, gen);
-    }};
-    VarParams<V> const bestParams = BestParameters_<D, N, V>(initialParams, psi, enPossCalculator);
+    if constexpr (V != UIntType{0}) {
+        auto const enPossCalculator{[&](VarParams<V> params) {
+            return VMCEnAndPoss<D, N, V>(psi, params, kin, pot, bounds, numberEnergies, gen);
+        }};
+        VarParams<V> const bestParams = BestParameters_<D, N, V>(initialParams, psi, enPossCalculator);
 
-    return AvgAndVar_(
-        Energies_(VMCEnAndPoss<D, N, V>(psi, bestParams, kin, pot, bounds, numberEnergies, gen)));
+        return AvgAndVar_(
+            Energies_(VMCEnAndPoss<D, N, V>(psi, bestParams, kin, pot, bounds, numberEnergies, gen)));
+    } else {
+        return AvgAndVar_(
+            Energies_(VMCEnAndPoss<D, N, V>(psi, VarParams<0>{}, kin, pot, bounds, numberEnergies, gen)));
+    }
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
