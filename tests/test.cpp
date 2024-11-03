@@ -139,35 +139,3 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
     // TODO:
     SUBCASE("1D radial Schroedinger eq") {}
 }
-
-/* FAKE TEST BEGINS HERE */
-
-using namespace vmcp;
-
-// This is just to test the algorithms before committing
-// Will be removed later
-// When using this test, it is suggested to comment out the others
-// The lowest energy should be at alpha = 1, and at that value the variance should be really small (1e-6 or
-// smaller)
-// For other values, the variance should be much larger (at least 1e-3), and the energy may be < 1, but within
-// the error
-TEST_CASE("main.cpp-like test case, will be removed") {
-    auto wavefHO{[](Positions<1, 1> x, VarParams<1> alpha) {
-        return std::pow(std::numbers::e_v<FPType>, -alpha[0].val * x[0][0].val * x[0][0].val / 2);
-    }};
-    auto potHO{[](Positions<1, 1> x) { return x[0][0].val * x[0][0].val; }};
-    auto kinHO{[&wavefHO](Positions<1, 1> x, VarParams<1> alpha) {
-        return (alpha[0].val - std::pow(alpha[0].val * x[0][0].val, 2)) * wavefHO(x, alpha);
-    }};
-
-    int numberEnergies = 100;
-    Bounds<1> bounds = {Bound{-100, 100}};
-    RandomGenerator gen{(std::random_device())()};
-
-    for (FPType alpha = 0.1f; alpha <= 2; alpha += FPType{0.05f}) {
-        VMCResult vmcr =
-            VMCEnergy<1, 1, 1>(wavefHO, VarParams<1>{alpha}, kinHO, potHO, bounds, numberEnergies, gen);
-        std::cout << "alpha: " << std::setprecision(3) << alpha << "\t\tenergy: " << std::setprecision(5)
-                  << vmcr.energy.val << " +/- " << std::sqrt(vmcr.variance.val) << '\n';
-    }
-}
