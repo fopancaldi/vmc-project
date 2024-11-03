@@ -5,8 +5,8 @@
 // It is just a way to improve the readability of vmcalgs.hpp
 //
 
-// The functions that have a trailing underscore would be declared and defined in a .cpp file, therefore
-// making them unreachable for the user
+// The functions that have a trailing underscore would, in a regular project, be (declared and) defined in a
+// .cpp file, therefore making them unreachable for the user
 // Since they are templated, they must be defined in a header
 
 #ifndef VMCPROJECT_VMCALGS_INL
@@ -20,6 +20,8 @@
 namespace vmcp {
 
 // Constants
+// Their name is before the underscore
+// After the underscore is the function(s) that use them
 constexpr FPType hbar = 1; // Natural units
 constexpr IntType pointsSearchPeak = 100;
 // TODO: Rename this one
@@ -27,8 +29,10 @@ constexpr IntType boundSteps = 100;
 constexpr IntType thermalizationMoves = 100;
 // TODO: Rename this one, also find if it is really 10 * thermalization moves
 constexpr IntType movesForgetICs = 10 * thermalizationMoves;
-// constexpr IntType vmcMoves = 10;
-constexpr FPType minPsi = 1e-6f;
+constexpr FPType minPsi_peakSearch = 1e-6f;
+constexpr IntType maxLoops_gradDesc = 100;
+constexpr IntType stepDenom_gradDesc = 100;
+constexpr FPType stoppingThreshold_gradDesc = 1e-9;
 
 // TODO: eps might be interpreted as an abbreviation for "epsilon"
 template <Dimension D, ParticNum N>
@@ -71,8 +75,9 @@ Positions<D, N> FindPeak_(Wavefunction const &psi, VarParams<V> params, Potentia
             });
         }
         // TODO: Explain better
-        // The requirement ... > minPsi avoids having psi(...) = nan, which breaks the Metropolis updates
-        if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi)) {
+        // The requirement ... > minPsi avoids having psi(...) = nan in the future, which breaks the update
+        // algorithms
+        if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi_peakSearch)) {
             result = newPoss;
         }
     }
@@ -211,10 +216,10 @@ std::array<Energy, D> ReweightedEnergies_(Wavefunction const &psi, VarParams<V> 
                                           std::vector<EnAndPos<N, D>> oldEnAndPoss, FPType step) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
-    std::array<Energy, D> result;
-    for (Dimension d = 0; d != D; ++d) {
-        VarParams<D> newParams = oldParams;
-        newParams[d].val += step;
+    std::array<Energy, V> result;
+    for (UIntType v = 0u; v != V; ++v) {
+        VarParams<V> newParams = oldParams;
+        newParams[v].val += step;
         std::vector<Energy> reweightedLocalEnergies;
         std::transform(oldEnAndPoss.begin(), oldEnAndPoss.end(), std::back_inserter(reweightedLocalEnergies),
                        [&psi, newParams, oldParams](EnAndPos<D, N> const &ep) {
@@ -232,14 +237,10 @@ std::array<Energy, D> ReweightedEnergies_(Wavefunction const &psi, VarParams<V> 
                 return f + std::pow(psi(ep.positions, newParams) / psi(ep.positions, oldParams), 2);
             });
 
-        result[d] = Energy{numerator / denominator};
+        result[v] = Energy{numerator / denominator};
     }
     return result;
 }
-
-// TODO: Rename these ones
-constexpr IntType maxLoops = 300;
-constexpr FPType bestParsStep = 1e-2f;
 
 // Calculates the parameters of the wavefunction that minimize the energy
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class EnAndPossCalculator>
@@ -248,40 +249,51 @@ VarParams<V> BestParameters_(VarParams<V> initialParams, Wavefunction const &psi
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(std::is_invocable_r_v<std::vector<EnAndPos<D, N>>, EnAndPossCalculator, VarParams<V>>);
 
-    VarParams<D> result = initialParams;
+    // Use the gradiest descent with momentum algorithm, with termination condition: stop if the new
+    // parameters are too close to the old ones
+    VarParams<V> result = initialParams;
+    std::array<FPType, V> parameterMomentum;
+    std::fill(parameterMomentum.begin(), parameterMomentum.end(), 0);
+    FPType const initialParamsNorm =
+        std::sqrt(std::accumulate(initialParams.begin(), initialParams.end(), FPType{0},
+                                  [](FPType f, VarParam v) { return f + v.val * v.val; }));
+    FPType gradientStep = initialParamsNorm / stepDenom_gradDesc;
 
-    for (IntType i = 0; i != maxLoops; ++i) {
+    for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
         std::vector<EnAndPos<D, N>> const currentEnAndPoss = epCalc(result);
         Energy const currentEnergy = AvgAndVar_(Energies_(currentEnAndPoss)).energy;
 
-        std::array<Energy, D> energiesIncreasedParam =
-            ReweightedEnergies_<D, N, V>(psi, result, currentEnAndPoss, bestParsStep);
-        std::array<Energy, D> energiesDecreasedParam =
-            ReweightedEnergies_<D, N, V>(psi, result, currentEnAndPoss, -bestParsStep);
+        std::array<Energy, V> energiesIncreasedParam =
+            ReweightedEnergies_<D, N, V>(psi, result, currentEnAndPoss, gradientStep);
+        std::array<Energy, V> energiesDecreasedParam =
+            ReweightedEnergies_<D, N, V>(psi, result, currentEnAndPoss, -gradientStep);
+        std::array<FPType, V> gradient;
+        for (VarParNum v = 0u; v != V; ++v) {
+            gradient[v] =
+                (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) / (2 * gradientStep);
+        }
 
-        // Find the steepest descent direction, if it exists, and move accordingly
-        auto const smallestNewEnergyIncr =
-            std::min_element(energiesIncreasedParam.begin(), energiesIncreasedParam.end(),
-                             [](Energy e1, Energy e2) { return e1.val < e2.val; });
-        auto const smallestNewEnergyDecr =
-            std::min_element(energiesDecreasedParam.begin(), energiesDecreasedParam.end(),
-                             [](Energy e1, Energy e2) { return e1.val < e2.val; });
-        // TODO: Adjust the step size
-        if (((*smallestNewEnergyIncr).val >= currentEnergy.val) &&
-            ((*smallestNewEnergyDecr).val >= currentEnergy.val)) {
-            break;
-        } else {
-            if ((*smallestNewEnergyIncr).val < (*smallestNewEnergyDecr).val) {
-                auto const steepestDirection =
-                    std::distance(smallestNewEnergyIncr, energiesIncreasedParam.begin());
-                assert(steepestDirection >= 0);
-                result[static_cast<UIntType>(steepestDirection)].val += bestParsStep;
-            } else {
-                auto const steepestDirection =
-                    std::distance(smallestNewEnergyDecr, energiesDecreasedParam.begin());
-                assert(steepestDirection >= 0);
-                result[static_cast<UIntType>(steepestDirection)].val -= bestParsStep;
+        // Try smaller and smaller steps until the new paraterers reslt in a smaller energy
+        FPType gradMultiplier = 2;
+        VarParams<V> newParams;
+        do {
+            gradMultiplier /= 2;
+            for (VarParNum v = 0u; v != V; ++v) {
+                newParams[v].val = result[v].val - gradMultiplier * gradient[v];
             }
+
+        } while (AvgAndVar_(Energies_(epCalc(newParams))).energy.val > currentEnergy.val);
+
+        // Set the next gradient step to the size of this step
+        FPType const oldParamsNorm = std::sqrt(std::accumulate(
+            result.begin(), result.end(), FPType{0}, [](FPType f, VarParam v) { return f + v.val * v.val; }));
+        gradientStep = std::sqrt(
+            std::inner_product(newParams.begin(), newParams.end(), result.begin(), FPType{0}, std::plus<>(),
+                               [](VarParam v1, VarParam v2) { return std::pow(v1.val - v2.val, 2); }));
+        result = newParams;
+
+        if ((gradientStep / oldParamsNorm) < stoppingThreshold_gradDesc) {
+            break;
         }
     }
 
