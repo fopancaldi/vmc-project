@@ -142,17 +142,16 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
 
-    // TODO: change name of D_ (look up theory and check value)
     FPType const diffusionConst = hbar * hbar / (2 * mass.val);
 
-    IntType successfulUpdates = 0;
+    IntType successfulUpdates = 0u;
     for (Position<D> &p : poss) {
-        Position<D> const oldPos = p;
+        Position const oldPos = p;
         FPType const oldPsi = psi(poss, params);
         std::array<FPType, D> const oldDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
         std::normal_distribution<FPType> normalDist(0.f, 1.f);
         for (Dimension d = 0u; d != D; ++d) {
-            p[D].val += oldDriftForce[d] * deltaT + normalDist(gen) * std::sqrt(deltaT);
+            p[d].val = oldDriftForce[d] * deltaT + normalDist(gen) * std::sqrt(deltaT);
         }
         FPType const newPsi = psi(poss, params);
         std::array<FPType, D> newDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
@@ -163,7 +162,7 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
                 (4 * diffusionConst * deltaT);
         }
         FPType const forwardProb = std::exp(forwardExponent);
-        FPType backwardExponent;
+        FPType backwardExponent = 0;
         for (Dimension d = 0u; d != D; ++d) {
             backwardExponent -=
                 std::pow(oldPos[d].val - p[d].val - diffusionConst * deltaT * newDriftForce[d], 2) /
@@ -246,34 +245,34 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
     // Step 3: Save the energies to be averaged
     Positions<D, N> poss = peak;
     // Move away from the peak, in order to forget the dependence on the initial conditions
+    auto computeEnergy = [&]() {
+        if (useAnalitycal) {
+            result.push_back(LocalEnergyAnalytic_<D, N>(psi, params, secondDer, mass, pot, poss));
+        } else {
+            result.push_back(LocalEnergyNumeric_<D, N>(psi, params, derivativeStep, mass, pot, poss));
+        }
+    };
+    auto importanceSamplingUpdate = [&]() {
+        ImportanceSamplingUpdate_<D, N>(psi, params, grad, mass, poss, gen);
+    };
+    auto metropolisUpdate = [&]() { MetropolisUpdate_<D, N>(psi, params, poss, step, gen); };
+    auto updateAndComputeEn = [&](auto &updateFunction) {
+        // Initial moves to forget initial conditions
+        for (int i = 0; i != movesForgetICs; ++i) {
+            updateFunction();
+        }
+        // Main loop for calculating energies
+        for (int i = 0; i != numberEnergies; ++i) {
+            for (int j = 0; j != thermalizationMoves; ++j) {
+                updateFunction();
+            }
+            computeEnergy();
+        }
+    };
     if (useImpSamp) {
-        for (int i = 0; i != movesForgetICs; ++i) {
-            ImportanceSamplingUpdate_<D, N>(psi, params, grad, mass, poss, gen);
-        }
-        for (int i = 0; i != numberEnergies; ++i) {
-            for (int j = 0; j != thermalizationMoves; ++j) {
-                ImportanceSamplingUpdate_<D, N>(psi, params, grad, mass, poss, gen);
-            }
-            if (useAnalitycal) {
-                result.push_back(LocalEnergyAnalytic_<D, N>(psi, params, secondDer, mass, pot, poss));
-            } else {
-                result.push_back(LocalEnergyNumeric_<D, N>(psi, params, derivativeStep, mass, pot, poss));
-            }
-        }
+        updateAndComputeEn(importanceSamplingUpdate);
     } else {
-        for (int i = 0; i != movesForgetICs; ++i) {
-            MetropolisUpdate_<D, N>(psi, params, poss, step, gen);
-        }
-        for (int i = 0; i != numberEnergies; ++i) {
-            for (int j = 0; j != thermalizationMoves; ++j) {
-                MetropolisUpdate_<D, N>(psi, params, poss, step, gen);
-            }
-            if (useAnalitycal) {
-                result.push_back(LocalEnergyAnalytic_<D, N>(psi, params, secondDer, mass, pot, poss));
-            } else {
-                result.push_back(LocalEnergyNumeric_<D, N>(psi, params, derivativeStep, mass, pot, poss));
-            }
-        }
+        updateAndComputeEn(metropolisUpdate);
     }
 
     // TODO: Step 4: Adjust the step size
