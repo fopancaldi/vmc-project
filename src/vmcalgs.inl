@@ -257,11 +257,9 @@ std::vector<Energy> WrappedVMCEnergies_(Wavefunction const &psi, VarParams<V> pa
     };
     auto metropolisUpdate = [&]() { MetropolisUpdate_<D, N>(psi, params, poss, step, gen); };
     auto updateAndComputeEn = [&](auto &updateFunction) {
-        // Initial moves to forget initial conditions
         for (int i = 0; i != movesForgetICs; ++i) {
             updateFunction();
         }
-        // Main loop for calculating energies
         for (int i = 0; i != numberEnergies; ++i) {
             for (int j = 0; j != thermalizationMoves; ++j) {
                 updateFunction();
