@@ -23,9 +23,9 @@ namespace vmcp {
 // Their name is before the underscore
 // After the underscore is the function(s) that use them
 constexpr FPType hbar = 1; // Natural units
-constexpr IntType pointsSearchPeak = 100;
+constexpr IntType numSamplesForPeakSearch = 100;
 // TODO: Rename this one
-constexpr FPType deltaT = 0.005;
+constexpr FPType deltaT = 0.005f;
 // TODO: Rename this one
 constexpr IntType boundSteps = 100;
 constexpr IntType thermalizationMoves = 100;
@@ -165,9 +165,9 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
         Position const oldPos = p;
         FPType const oldPsi = psi(poss, params);
         std::array<FPType, D> const oldDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
-        std::normal_distribution<FPType> normalDist(0.f, 1.f);
+        std::normal_distribution<FPType> normal(0.f, diffusionConst * deltaT);
         for (Dimension d = 0u; d != D; ++d) {
-            p[d].val = oldDriftForce[d] * deltaT + normalDist(gen) * std::sqrt(deltaT);
+             p[d].val = oldPos[d].val + diffusionConst * deltaT * (oldDriftForce[d] + normal(gen));
         }
         FPType const newPsi = psi(poss, params);
         std::array<FPType, D> newDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
@@ -247,8 +247,8 @@ WrappedVMCEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnali
 
     std::vector<EnAndPos<D, N>> result;
 
-    // Step 1: Find a good starting point, it the sense that it easy to move away from
-    Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, pointsSearchPeak, gen);
+    // Step 1: Find a good starting point, in the sense that it's easy to move away from
+    Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, numSamplesForPeakSearch, gen);
 
     // Step 2: Choose the step
     Bound const smallestBound = *(std::min_element(

@@ -3,10 +3,12 @@
 
 #include "vmcp.hpp"
 
+#include <functional>
 #include <numbers>
 #include <tuple>
 
-// FP TODO: A lot of duplicated for loops
+// LF TODO: Rename the gradients
+// I will explain myself better
 
 constexpr vmcp::UIntType seed = 64826;
 constexpr vmcp::IntType iterations = 40;
@@ -19,6 +21,7 @@ constexpr vmcp::IntType varParamsFactor = 8;
 // FP TODO: One pair of brackets can probably be removed here
 // Learn th epriority of the operations and adjust the resto of the code too
 static_assert((iterations % varParamsFactor) == 0);
+constexpr bool testImpSamp = true;
 
 // FP TODO: Rename if WrappedVMCEnergies is renamed
 TEST_CASE("Testing WrappedVMCEnergies_") {
@@ -40,12 +43,20 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
             }
         };
 
-        SUBCASE("No variational parameters") {
+        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
                     return std::exp(-x[0][0].val * x[0][0].val * (m.val * omega / (2 * vmcp::hbar)));
+                }
+            };
+            struct GradHO {
+                vmcp::Mass m;
+                vmcp::FPType omega;
+                vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
+                    return (-x[0][0].val * (m.val * omega / (vmcp::hbar))) *
+                           WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
             struct SecondDerHO {
@@ -60,8 +71,9 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
             };
 
             WavefHO wavefHO{mInit.val, omegaInit};
-            PotHO potHO{mInit.val, omegaInit};
+            std::array<GradHO, 1> gradHOArr{GradHO{mInit.val, omegaInit}};
             SecondDerHO secondDerHO{mInit, omegaInit};
+            PotHO potHO{mInit.val, omegaInit};
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_.val += mStep) {
                 wavefHO.m = m_;
@@ -74,12 +86,17 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
                     secondDerHO.omega = omega_;
 
                     vmcp::Energy expectedEn{vmcp::hbar * omega_ / 2};
-                    vmcp::VMCResult vmcr =
+                    vmcp::VMCResult vmcrMetr =
                         vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::VarParams<0>{}, secondDerHO, m_, potHO,
                                                  bounds, numberEnergies, rndGen);
+                    vmcp::VMCResult vmcrImpSamp =
+                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::VarParams<0>{}, gradHOArr, secondDerHO, m_,
+                                                 potHO, bounds, numberEnergies, rndGen);
 
-                    CHECK(std::abs(vmcr.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcr.variance.val)), stdDevTolerance));
+                    CHECK(std::abs(vmcrMetr.energy.val - expectedEn.val) <
+                          std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance));
+                    CHECK(std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
+                          std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance));
                 }
             }
         }
@@ -118,7 +135,7 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
     }
 
     SUBCASE("1D potential box") {
-        // l = length of the box
+        // l = length of the box4
         vmcp::IntType const numberEnergies = 100;
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Mass const mInit{0.1f};
@@ -129,15 +146,21 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
         vmcp::IntType const lIterations = iterations;
         auto const potBox{[](vmcp::Positions<1, 1>) { return vmcp::FPType{0}; }};
 
-        SUBCASE("No variational parameters") {
+        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
                     return std::cos(std::numbers::pi_v<vmcp::FPType> * x[0][0].val / l);
                 }
             };
+            struct GradBox {
+                vmcp::FPType l;
+                vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
+                    return -(std::numbers::pi_v<vmcp::FPType> / l) *
+                           std::sin(std::numbers::pi_v<vmcp::FPType> * x[0][0].val / l);
+                }
+            };
             struct SecondDerBox {
-                vmcp::Mass m;
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
                     // FP TODO: Constructing a new object might be expensive
@@ -147,10 +170,10 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
             };
 
             WavefBox wavefBox{lInit};
-            SecondDerBox secondDerBox{mInit, lInit};
+            std::array<GradBox, 1> gradBox{GradBox{lInit}};
+            SecondDerBox secondDerBox{lInit};
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_.val += mStep) {
-                secondDerBox.m = m_;
                 for (auto [j, l_] = std::tuple{vmcp::IntType{0}, lInit}; j != lIterations; ++j, l_ += lStep) {
                     wavefBox.l = l_;
                     secondDerBox.l = l_;
@@ -158,12 +181,17 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
                     vmcp::Bounds<1> bound{vmcp::Bound{-l_ / 2, l_ / 2}};
                     vmcp::Energy expectedEn{1 / (2 * m_.val) *
                                             std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
-                    vmcp::VMCResult vmcr =
+                    vmcp::VMCResult vmcrMetr =
                         vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::VarParams<0>{}, secondDerBox, m_, potBox,
                                                  bound, numberEnergies, rndGen);
+                    vmcp::VMCResult vmcrImpSamp =
+                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::VarParams<0>{}, gradBox, secondDerBox, m_,
+                                                 potBox, bound, numberEnergies, rndGen);
 
-                    CHECK(std::abs(vmcr.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcr.variance.val)), stdDevTolerance));
+                    CHECK(std::abs(vmcrMetr.energy.val - expectedEn.val) <
+                          std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance));
+                    CHECK(std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
+                          std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance));
                 }
             }
         }
@@ -200,9 +228,152 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
         } */
     }
 
-    // TODO:
-    SUBCASE("1D triangular well potential") {}
+    // TODO: to be finished & adding references
+    // SUBCASE("1D triangular well potential") {
+    //     struct WavefTrg {
+    //         vmcp::FPType alpha;
+    //         vmcp::FPType m;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
+    //             return std::pow(std::numbers::e_v<vmcp::FPType>,
+    //                             -std::pow(2 * m * alpha / (vmcp::hbar * vmcp::hbar), 1 / 3) *
+    //                                 std::abs(x[0][0].val));
+    //         }
+    //     };
+    //     struct PotTrg {
+    //         vmcp::FPType alpha;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> x) const { return alpha * std::abs(x[0][0].val);
+    //         }
+    //     };
+    //     struct GradTrg {
+    //         vmcp::FPType alpha;
+    //         vmcp::FPType m;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
+    //             return -std::pow(2 * m * alpha / (vmcp::hbar * vmcp::hbar), 1 / 3) *
+    //                    std::signbit(x[0][0].val) * WavefTrg{alpha, m}(x, vmcp::VarParams<0>{});
+    //         }
+    //     };
+    //     struct SecondDerTrg {
+    //         vmcp::FPType alpha;
+    //         vmcp::FPType m;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
+    //             return std::pow(2 * m * alpha / (vmcp::hbar * vmcp::hbar), 2 / 3) *
+    //                    WavefTrg{alpha, m}(x, vmcp::VarParams<0>{});
+    //         }
+    //     };
+    //
+    //    vmcp::IntType const numberEnergies = 100;
+    //    vmcp::Bounds<1> const bounds = {vmcp::Bound{-100, 100}};
+    //    vmcp::RandomGenerator rndGen{seed};
+    //    vmcp::FPType const alphaInit = 0.1f;
+    //    vmcp::FPType const mInit = 0.5f;
+    //    vmcp::FPType const alphaStep = 0.2f;
+    //    vmcp::FPType const mStep = 0.2f;
+    //    vmcp::IntType const alphaIterations = 10;
+    //    vmcp::IntType const mIterations = 10;
+    //    vmcp::Mass mass = vmcp::Mass{1.f};
+    //    WavefTrg wavefTrg{alphaInit, mInit};
+    //    PotTrg potTrg{alphaInit};
+    //    GradTrg gradTrg{alphaInit, mInit};
+    //    SecondDerTrg secondDerTrg{alphaInit, mInit};
+    //    std::array<GradTrg, 1> gradTrgArr = {gradTrg};
+    //    for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_ += mStep) {
+    //        wavefTrg.m = m_;
+    //        gradTrg.m = m_;
+    //        secondDerTrg.m = m_;
+    //        for (auto [j, alpha_] = std::tuple{vmcp::IntType{0}, alphaInit}; j != alphaIterations;
+    //             ++j, alpha_ += alphaStep) {
+    //            wavefTrg.alpha = alpha_;
+    //            potTrg.alpha = alpha_;
+    //            gradTrg.alpha = alpha_;
+    //            secondDerTrg.alpha = alpha_;
+    //            mass.val = m_;
+    //
+    //            vmcp::Energy expectedEn{std::pow(2 * m_, -1 / 3) *
+    //                                    std::pow(alpha_ * vmcp::hbar * 3 / 4, 2 / 3)};
+    //            vmcp::VMCResult vmcr =
+    //                vmcp::VMCEnergy<1, 1>(wavefTrg, vmcp::VarParams<0>{}, testImpSamp, gradTrgArr,
+    //                                      secondDerTrg, mass, potTrg, bounds, numberEnergies, rndGen);
+    //
+    //            if (std::abs(vmcr.variance.val) < varianceTolerance) {
+    //                CHECK(std::abs(vmcr.energy.val - expectedEn.val) < varianceTolerance);
+    //            } else {
+    //                CHECK(std::abs(vmcr.energy.val - expectedEn.val) < vmcr.variance.val);
+    //            }
+    //        }
+    //    }
+    //}
 
-    // TODO:
-    SUBCASE("1D radial Schroedinger eq") {}
+    // TODO: to be finished & adding references
+    // SUBCASE("1D radial Schroedinger eq") {
+    //     struct WavefRad {
+    //         vmcp::FPType k;
+    //         vmcp::FPType m;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> r, vmcp::VarParams<0>) const {
+    //             return r[0][0].val * std::pow(std::numbers::e_v<vmcp::FPType>,
+    //                                           -m * k / (vmcp::hbar * vmcp::hbar) * r[0][0].val);
+    //         }
+    //     };
+    //     struct PotRad {
+    //         vmcp::FPType k;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> r) const { return (-k / r[0][0].val); }
+    //     };
+    //     struct GradRad {
+    //         vmcp::FPType k;
+    //         vmcp::FPType m;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> r, vmcp::VarParams<0>) const {
+    //             return (1 - m * k / (vmcp::hbar * vmcp::hbar) * r[0][0].val) *
+    //                    WavefRad{k, m}(r, vmcp::VarParams<0>{});
+    //         }
+    //     };
+    //     struct SecondDerRad {
+    //         vmcp::FPType k;
+    //         vmcp::FPType m;
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> r, vmcp::VarParams<0>) const {
+    //             return (std::pow(1 - r[0][0].val * m * k / (vmcp::hbar * vmcp::hbar), 2) -
+    //                     m * k / (vmcp::hbar * vmcp::hbar)) *
+    //                    WavefRad{k, m}(r, vmcp::VarParams<0>{});
+    //         }
+    //     };
+    //
+    //    vmcp::IntType const numberEnergies = 100;
+    //    vmcp::Bounds<1> const bounds = {vmcp::Bound{0, 100}};
+    //    vmcp::RandomGenerator rndGen{seed};
+    //    vmcp::FPType const kInit = 1.2f;
+    //    vmcp::FPType const mInit = 0.3f;
+    //    vmcp::FPType const kStep = 0.1f;
+    //    vmcp::FPType const mStep = 0.2f;
+    //    vmcp::IntType const kIterations = 10;
+    //    vmcp::IntType const mIterations = 10;
+    //    vmcp::Mass mass = vmcp::Mass{1.f};
+    //    WavefRad wavefRad{kInit, mInit};
+    //    PotRad potRad{kInit};
+    //    GradRad gradRad{kInit, mInit};
+    //    SecondDerRad secondDerRad{kInit, mInit};
+    //    std::array<GradRad, 1> gradRadArr = {gradRad};
+    //
+    //    for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_ += mStep) {
+    //        wavefRad.m = m_;
+    //        gradRad.m = m_;
+    //        secondDerRad.m = m_;
+    //        for (auto [j, k_] = std::tuple{vmcp::IntType{0}, kInit}; j != kIterations; ++j, k_ += kStep) {
+    //            wavefRad.k = k_;
+    //            potRad.k = k_;
+    //            gradRad.k = k_;
+    //            secondDerRad.k = k_;
+    //            mass.val = m_;
+    //
+    //            vmcp::Energy expectedEn{-m_ * std::pow((1.6021766 * std::pow(10, -19)), 4) /
+    //                                    (2 * vmcp::hbar)};
+    //            vmcp::VMCResult vmcr =
+    //                vmcp::VMCEnergy<1, 1>(wavefRad, vmcp::VarParams<0>{}, testImpSamp, gradRadArr,
+    //                                      secondDerRad, mass, potRad, bounds, numberEnergies, rndGen);
+    //
+    //            if (std::abs(vmcr.variance.val) < varianceTolerance) {
+    //                CHECK(std::abs(vmcr.energy.val - expectedEn.val) < varianceTolerance);
+    //            } else {
+    //                CHECK(std::abs(vmcr.energy.val - expectedEn.val) < vmcr.variance.val);
+    //            }
+    //        }
+    //    }
+    //}
 }
