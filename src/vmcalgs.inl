@@ -149,9 +149,9 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
         Position const oldPos = p;
         FPType const oldPsi = psi(poss, params);
         std::array<FPType, D> const oldDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
-        std::normal_distribution<FPType> normalDist(0.f, 1.f);
+        std::normal_distribution<FPType> normalDist(0.f, diffusionConst * deltaT);
         for (Dimension d = 0u; d != D; ++d) {
-            p[d].val = oldPos[d].val + diffusionConst * oldDriftForce[d] * deltaT + normalDist(gen) * std::sqrt(deltaT);
+             p[d].val = oldPos[d].val + diffusionConst * deltaT * (oldDriftForce[d] + normalDist(gen));
         }
         FPType const newPsi = psi(poss, params);
         std::array<FPType, D> newDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
