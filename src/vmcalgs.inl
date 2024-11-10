@@ -24,19 +24,20 @@ namespace vmcp {
 // After the underscore is the function(s) that use them
 constexpr FPType hbar = 1; // Natural units
 constexpr IntType numSamplesForPeakSearch = 100;
-// TODO: Rename this one
+// LF TODO: Rename this one
+// Also, is there a better criterion to choose this than to simply fix it (which is a bad idea since it might
+// turn out to be too large for some programs)?
 constexpr FPType deltaT = 0.005f;
-// TODO: Rename this one
+// FP TODO: Rename this one
 constexpr IntType boundSteps = 100;
 constexpr IntType thermalizationMoves = 100;
-// TODO: Rename this one, also find if it is really 10 * thermalization moves
+// FP TODO: Rename this one, also find if it is really 10 * thermalization moves
 constexpr IntType movesForgetICs = 10 * thermalizationMoves;
 constexpr FPType minPsi_peakSearch = 1e-6f;
 constexpr IntType maxLoops_gradDesc = 100;
 constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = FPType{1e-6f};
 
-// TODO: eps might be interpreted as an abbreviation for "epsilon"
 template <Dimension D, ParticNum N>
 std::vector<Energy> Energies_(std::vector<EnAndPos<D, N>> const &eps) {
     std::vector<Energy> result;
@@ -46,7 +47,7 @@ std::vector<Energy> Energies_(std::vector<EnAndPos<D, N>> const &eps) {
     return result;
 }
 
-// TODO: Not really a fan of the name, though surely it is better than AddTo_
+// FP/LF TODO: Not really a fan of the name, though surely it is better than AddTo_
 // Computes the position of the particles when the n-th one is moved by delta along the d-th direction (with
 // both n and d starting from 0)
 template <Dimension D, ParticNum N>
@@ -75,13 +76,13 @@ Positions<D, N> FindPeak_(Wavefunction const &psi, VarParams<V> params, Potentia
     std::uniform_real_distribution<FPType> unif(0, 1);
     for (IntType i = 0; i != points; ++i) {
         Positions<D, N> newPoss;
-        // TODO: Is it really necessary to specify Position<D>?
+        // FP TODO: Is it really necessary to specify Position<D>?
+        // In general, study class template argument deduction
         for (Position<D> &p : newPoss) {
             std::transform(bounds.begin(), bounds.end(), p.begin(), [&unif, &gen](Bound b) {
                 return Coordinate{b.lower + unif(gen) * (b.upper - b.lower)};
             });
         }
-        // TODO: Explain better
         // The requirement ... > minPsi avoids having psi(...) = nan in the future, which breaks the update
         // algorithms
         if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi_peakSearch)) {
@@ -167,7 +168,7 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
         std::array<FPType, D> const oldDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
         std::normal_distribution<FPType> normal(0.f, diffusionConst * deltaT);
         for (Dimension d = 0u; d != D; ++d) {
-             p[d].val = oldPos[d].val + diffusionConst * deltaT * (oldDriftForce[d] + normal(gen));
+            p[d].val = oldPos[d].val + diffusionConst * deltaT * (oldDriftForce[d] + normal(gen));
         }
         FPType const newPsi = psi(poss, params);
         std::array<FPType, D> newDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
