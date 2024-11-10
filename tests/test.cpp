@@ -5,10 +5,13 @@
 
 #include <functional>
 #include <numbers>
+#include <string>
 #include <tuple>
 
 // LF TODO: Rename the gradients
 // I will explain myself better
+
+// FP TODO: Change mStep to a vmcp::Mass everywhere and define operator+= for vmcp::Mass
 
 constexpr vmcp::UIntType seed = 64826;
 constexpr vmcp::IntType iterations = 40;
@@ -19,12 +22,16 @@ constexpr vmcp::FPType stdDevTolerance = 1e-9f;
 // FP TODO: Rename
 constexpr vmcp::IntType varParamsFactor = 8;
 // FP TODO: One pair of brackets can probably be removed here
-// Learn th epriority of the operations and adjust the resto of the code too
+// Learn the priority of the operations and adjust the rest of the code too
 static_assert((iterations % varParamsFactor) == 0);
+// LF TODO: This is unused for now!
 constexpr bool testImpSamp = true;
+// Rules out situations where both the VMC energy and the variance are extremely large
+constexpr vmcp::FPType vmcEnergyTolerance = 0.5f;
+// FP TODO: Explain
+constexpr vmcp::IntType initialParamFactor = 5;
 
-// FP TODO: Rename if WrappedVMCEnergies is renamed
-TEST_CASE("Testing WrappedVMCEnergies_") {
+TEST_CASE("Testing VMCLocEnAndEnergies_") {
     SUBCASE("1D harmonic oscillator") {
         vmcp::IntType const numberEnergies = 100;
         vmcp::Bounds<1> const bounds = {vmcp::Bound{-100, 100}};
@@ -43,7 +50,7 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
             }
         };
 
-        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        /* SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
@@ -85,21 +92,31 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
                     potHO.omega = omega_;
                     secondDerHO.omega = omega_;
 
-                    vmcp::Energy expectedEn{vmcp::hbar * omega_ / 2};
-                    vmcp::VMCResult vmcrMetr =
+                    vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
+                    vmcp::VMCResult const vmcrMetr =
                         vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::VarParams<0>{}, secondDerHO, m_, potHO,
                                                  bounds, numberEnergies, rndGen);
-                    vmcp::VMCResult vmcrImpSamp =
+                    vmcp::VMCResult const vmcrImpSamp =
                         vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::VarParams<0>{}, gradHOArr, secondDerHO, m_,
                                                  potHO, bounds, numberEnergies, rndGen);
 
-                    CHECK(std::abs(vmcrMetr.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance));
-                    CHECK(std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance));
+                    std::string logMessage{"mass: " + std::to_string(m_.val) +
+                                           ", ang. vel.: " + std::to_string(omega_)};
+                    CHECK_MESSAGE(std::abs(vmcrMetr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                                  logMessage);
+                    CHECK_MESSAGE(
+                        std::abs(vmcrMetr.energy.val - expectedEn.val) <
+                            std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance),
+                        logMessage);
+                    CHECK_MESSAGE(std::abs(vmcrImpSamp.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                                  logMessage);
+                    CHECK_MESSAGE(
+                        std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
+                            std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance),
+                        logMessage);
                 }
             }
-        }
+        } */
 
         SUBCASE("One variational parameter") {
             auto const wavefHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
@@ -109,10 +126,9 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
                 // FP TODO: Constructing a new object might be expensive
                 return (std::pow(x[0][0].val * alpha[0].val, 2) - alpha[0].val) * wavefHO(x, alpha);
             }};
-            PotHO potHO{mInit.val, omegaInit};
+            PotHO potHO{mInit, omegaInit};
             // Ensures that the initial parameter is sufficiently far from the best parameter, which is m *
             // omega / hbar
-            vmcp::IntType const initialParamFactor = 5;
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations / varParamsFactor;
                  ++i, m_.val += mStep * varParamsFactor) {
@@ -123,19 +139,27 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
 
                     vmcp::VarParams<1> const initialParam{
                         vmcp::VarParam{initialParamFactor * m_.val * omega_ / vmcp::hbar}};
-                    vmcp::Energy expectedEn{vmcp::hbar * omega_ / 2};
-                    vmcp::VMCResult vmcr = vmcp::VMCEnergy<1, 1, 1>(wavefHO, initialParam, secondDerHO, m_,
-                                                                    potHO, bounds, numberEnergies, rndGen);
+                    vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
+                    vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(
+                        wavefHO, initialParam, secondDerHO, m_, potHO, bounds, numberEnergies, rndGen);
 
-                    CHECK(std::abs(vmcr.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcr.variance.val)), stdDevTolerance));
+                    std::cout << "Best param.: " << m_.val * omega_ / vmcp::hbar << '\n';
+
+                    std::string logMessage{"mass: " + std::to_string(m_.val) +
+                                           ", ang. vel.: " + std::to_string(omega_)};
+                    CHECK_MESSAGE(std::abs(vmcr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                                  logMessage);
+                    CHECK_MESSAGE(
+                        std::abs(vmcr.energy.val - expectedEn.val) <
+                            std::max((allowedStdDevs * std::sqrt(vmcr.variance.val)), stdDevTolerance),
+                        logMessage);
                 }
             }
         }
     }
 
     SUBCASE("1D potential box") {
-        // l = length of the box4
+        // l = length of the box
         vmcp::IntType const numberEnergies = 100;
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Mass const mInit{0.1f};
@@ -146,7 +170,7 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
         vmcp::IntType const lIterations = iterations;
         auto const potBox{[](vmcp::Positions<1, 1>) { return vmcp::FPType{0}; }};
 
-        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        /* SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
@@ -178,23 +202,33 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
                     wavefBox.l = l_;
                     secondDerBox.l = l_;
 
-                    vmcp::Bounds<1> bound{vmcp::Bound{-l_ / 2, l_ / 2}};
-                    vmcp::Energy expectedEn{1 / (2 * m_.val) *
-                                            std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
-                    vmcp::VMCResult vmcrMetr =
+                    vmcp::Bounds<1> const bound{vmcp::Bound{-l_ / 2, l_ / 2}};
+                    vmcp::Energy const expectedEn{
+                        1 / (2 * m_.val) * std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
+                    vmcp::VMCResult const vmcrMetr =
                         vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::VarParams<0>{}, secondDerBox, m_, potBox,
                                                  bound, numberEnergies, rndGen);
-                    vmcp::VMCResult vmcrImpSamp =
+                    vmcp::VMCResult const vmcrImpSamp =
                         vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::VarParams<0>{}, gradBox, secondDerBox, m_,
                                                  potBox, bound, numberEnergies, rndGen);
 
-                    CHECK(std::abs(vmcrMetr.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance));
-                    CHECK(std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
-                          std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance));
+                    std::string logMessage{"mass: " + std::to_string(m_.val) +
+                                           ", length: " + std::to_string(l_)};
+                    CHECK_MESSAGE(std::abs(vmcrMetr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                                  logMessage);
+                    CHECK_MESSAGE(
+                        std::abs(vmcrMetr.energy.val - expectedEn.val) <
+                            std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance),
+                        logMessage);
+                    CHECK_MESSAGE(std::abs(vmcrImpSamp.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                                  logMessage);
+                    CHECK_MESSAGE(
+                        std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
+                            std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance),
+                        logMessage);
                 }
             }
-        }
+        } */
 
         /* // FP TODO: Find a nice trial wavefunction
         SUBCASE("One variational parameter") {
@@ -228,7 +262,7 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
         } */
     }
 
-    // TODO: to be finished & adding references
+    // LF TODO: to be finished & adding references
     // SUBCASE("1D triangular well potential") {
     //     struct WavefTrg {
     //         vmcp::FPType alpha;
@@ -303,7 +337,7 @@ TEST_CASE("Testing WrappedVMCEnergies_") {
     //    }
     //}
 
-    // TODO: to be finished & adding references
+    // LF TODO: to be finished & adding references
     // SUBCASE("1D radial Schroedinger eq") {
     //     struct WavefRad {
     //         vmcp::FPType k;

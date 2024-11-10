@@ -39,6 +39,7 @@ using VarParNum = UIntType;
 // Position of the particles (in D dimensions)
 struct Coordinate {
     FPType val;
+    Coordinate &operator+=(Coordinate);
 };
 template <Dimension D>
 using Position = std::array<Coordinate, D>;
@@ -65,12 +66,10 @@ struct VMCResult {
     Energy energy;
     EnVariance variance;
 };
-// TODO: Rename if the function is renamed
-// WrappedVMVEnergies_ result
-template <Dimension D,ParticNum N>
-struct EnAndPos {
+template <Dimension D, ParticNum N>
+struct LocEnAndPoss {
     Energy energy;
-    Positions<D,N> positions;
+    Positions<D, N> positions;
 };
 // One-dimensional region of integration
 struct Bound {
@@ -97,5 +96,9 @@ constexpr bool IsPotential() {
 }
 
 } // namespace vmcp
+
+// Some implementations are in this file
+// It is separated to improve readability
+#include "types.inl"
 
 #endif
