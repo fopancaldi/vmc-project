@@ -20,11 +20,39 @@ inline Coordinate &Coordinate::operator+=(Coordinate other) {
     val += other.val;
     return *this;
 }
-
 inline Coordinate operator+(Coordinate lhs, Coordinate rhs) {
     Coordinate result = lhs;
     return result += rhs;
 }
+inline Coordinate &Coordinate::operator-=(Coordinate other) {
+    val -= other.val;
+    return *this;
+}
+inline Coordinate operator-(Coordinate lhs, Coordinate rhs) {
+    Coordinate result = lhs;
+    return result -= rhs;
+}
+
+
+inline VarParam &VarParam::operator+=(VarParam other) {
+    val += other.val;
+    return *this;
+}
+inline VarParam operator+(VarParam lhs, VarParam rhs) {
+    VarParam result = lhs;
+    return result += rhs;
+}
+inline VarParam &VarParam::operator-=(VarParam other) {
+    val -= other.val;
+    return *this;
+}
+inline VarParam operator-(VarParam lhs, VarParam rhs) {
+    VarParam result = lhs;
+    return result -= rhs;
+}
+
+
+
 
 } // namespace vmcp
 

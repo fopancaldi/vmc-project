@@ -40,6 +40,7 @@ using VarParNum = UIntType;
 struct Coordinate {
     FPType val;
     Coordinate &operator+=(Coordinate);
+    Coordinate &operator-=(Coordinate);
 };
 template <Dimension D>
 using Position = std::array<Coordinate, D>;
@@ -48,6 +49,8 @@ using Positions = std::array<Position<D>, N>;
 // Variational parameters
 struct VarParam {
     FPType val;
+    VarParam &operator+=(VarParam);
+    VarParam &operator-=(VarParam);
 };
 template <VarParNum V>
 using VarParams = std::array<VarParam, V>;
@@ -71,15 +74,18 @@ struct LocEnAndPoss {
     Energy energy;
     Positions<D, N> positions;
 };
-// One-dimensional region of integration
+// One-dimensional interval
+template <typename T>
 struct Bound {
-    FPType lower;
-    FPType upper;
-    Bound(FPType lower_, FPType upper_) : lower{lower_}, upper{upper_} { assert(upper >= lower); }
-    FPType Length() const { return upper - lower; }
+    T lower;
+    T upper;
+    Bound(T lower_, T upper_) : lower{lower_}, upper{upper_} { assert(upper.val >= lower.val); }
+    T Length() const { return upper - lower; }
 };
 template <Dimension D>
-using Bounds = std::array<Bound, D>;
+using CoordBounds = std::array<Bound<Coordinate>, D>;
+template <VarParNum V>
+using ParamBounds = std::array<Bound<VarParam>, V>;
 
 // To (only) be used in a static assertion
 template <Dimension D, ParticNum N, VarParNum V, class Function>
