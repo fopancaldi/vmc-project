@@ -14,9 +14,9 @@
 // FP TODO: Change mStep to a vmcp::Mass everywhere and define operator+= for vmcp::Mass
 
 constexpr vmcp::UIntType seed = 64826;
-constexpr vmcp::IntType iterations = 40;
+constexpr vmcp::IntType iterations = 64;
 // FP TODO: Rename this
-constexpr vmcp::IntType allowedStdDevs = 5;
+constexpr vmcp::IntType allowedStdDevs = 16;
 // FP TODO: Explain, and maybe rename
 constexpr vmcp::FPType stdDevTolerance = 1e-9f;
 // FP TODO: Rename
