@@ -19,7 +19,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<
 // Computes energy and variance by using the VMC algorithm with the analytical formula for the derivative and
 // the Metropolis algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class SecondDerivative, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, VarParams<V>, SecondDerivative const &, Mass, Potential const &,
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, SecondDerivative const &, Mass, Potential const &,
                     CoordBounds<D>, IntType, RandomGenerator &);
 
 // Computes energies and positions by using the VMC algorithm with the analytical formula for the derivative
@@ -35,7 +35,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<
 // the importance sampling algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative,
           class SecondDerivative, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, VarParams<V>, std::array<FirstDerivative, D> const &,
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, std::array<FirstDerivative, D> const &,
                     SecondDerivative const &, Mass, Potential const &, CoordBounds<D>, IntType,
                     RandomGenerator &);
 
@@ -49,8 +49,8 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<
 // Computes energy and variance using the VMC algorithm with with a numerical estimation of the derivative
 // and the either the Metropolis or the importance sampling algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, VarParams<V>, bool, FPType, Mass, Potential const &, CoordBounds<D>,
-                    IntType, RandomGenerator &);
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Mass, Potential const &,
+                    CoordBounds<D>, IntType, RandomGenerator &);
 
 } // namespace vmcp
 

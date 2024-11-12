@@ -18,9 +18,6 @@
 #include <cassert>
 #include <functional>
 
-// TODO:
-#include <iostream>
-
 namespace vmcp {
 
 // Constants
@@ -40,11 +37,13 @@ constexpr IntType thermalizationMoves = 100;
 // FP TODO: Rename this one, also find if it is really 10 * thermalization moves
 constexpr IntType movesForgetICs = 10 * thermalizationMoves;
 constexpr FPType minPsi_peakSearch = 1e-6f;
-constexpr IntType maxLoops_gradDesc = 100;
+constexpr IntType maxLoops_gradDesc = 10000;
 constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = 1e-6f;
 constexpr FPType targetAcceptRate_VMCLocEnAndPoss = 0.5f;
-constexpr IntType numWalkers_gradDesc = 10;
+constexpr UIntType numWalkers_gradDesc = 10;
+// FP TODO: Rename
+constexpr FPType gradDescentFraction = 0.1f;
 
 VMCResult AvgAndVar_(std::vector<Energy> const &);
 
@@ -256,17 +255,17 @@ VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytica
 
     std::vector<LocEnAndPoss<D, N>> result;
 
-    // Step 1: Find a good starting point, in the sense that it's easy to move away from
+    // Find a good starting point, in the sense that it's easy to move away from
     Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, points_peakSearch, gen);
 
-    // Step 2: Choose the step
+    // Choose the step
     Bound const smallestBound =
         *(std::min_element(bounds.begin(), bounds.end(), [](Bound<Coordinate> b1, Bound<Coordinate> b2) {
             return b1.Length().val < b2.Length().val;
         }));
     FPType step = smallestBound.Length().val / boundSteps;
 
-    // Step 3: Save the energies to be averaged
+    // Save the energies to be averaged
     Positions<D, N> poss = peak;
     std::function<Energy()> localEnergy;
     if (useAnalytical) {
@@ -300,8 +299,8 @@ VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytica
         // Call car = current acc. rate, tar = target acc. rate
         // Add (car - tar)/tar to step, since it increases step if too many moves were accepted and decreases
         // it if too few were accepted
-        /* FPType currentAcceptRate = succesfulUpdates * FPType{1} / (thermalizationMoves * N);
-        step *= currentAcceptRate / targetAcceptRate_VMCLocEnAndPoss; */
+        FPType currentAcceptRate = succesfulUpdates * FPType{1} / (thermalizationMoves * N);
+        step *= currentAcceptRate / targetAcceptRate_VMCLocEnAndPoss;
     }
 
     return result;
@@ -341,147 +340,99 @@ std::array<Energy, D> ReweightedEnergies_(Wavefunction const &psi, VarParams<V> 
     return result;
 }
 
-// Calculates the parameters of the wavefunction that minimize the VMC energy
+// Calculates the parameters of the wavefunction that minimize the VMC energy, by doing gradient descent
+// starting from the given parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class LocEnAndPossCalculator>
-VarParams<V> BestParameters_(VarParams<V> initialParams, Wavefunction const &psi,
-                             LocEnAndPossCalculator const &lepsCalc) {
+VMCResult VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &psi,
+                          LocEnAndPossCalculator const &lepsCalc) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
     static_assert(V != UIntType{0});
 
-    // Use a modified gradient descent algorithm with termination condition: stop if the new parameters are
-    // too close to the old ones
-    VarParams<V> result = initialParams;
+    // Use a modified gradient descent algorithm with termination condition: stop if the new parameters
+    // are too close to the old ones
+    VMCResult result;
+    VarParams<V> currentParams = initialParams;
     FPType const initialParamsNorm = std::sqrt(
         std::inner_product(initialParams.begin(), initialParams.end(), initialParams.begin(), FPType{0},
                            std::plus<>(), [](VarParam v1, VarParam v2) { return v1.val * v2.val; }));
     FPType gradientStep = initialParamsNorm / stepDenom_gradDesc;
 
     for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
-        std::vector<LocEnAndPoss<D, N>> const currentEnAndPoss = lepsCalc(result);
-        Energy const currentEnergy = AvgAndVar_(LocalEnergies_(currentEnAndPoss)).energy;
+        std::vector<LocEnAndPoss<D, N>> const currentEnAndPoss = lepsCalc(currentParams);
+        VMCResult const currentVMCR = AvgAndVar_(LocalEnergies_(currentEnAndPoss));
+        result = currentVMCR;
 
+        // Compute the gradient by using reweighting
         std::array<Energy, V> energiesIncreasedParam =
-            ReweightedEnergies_<D, N, V>(psi, result, currentEnAndPoss, gradientStep);
+            ReweightedEnergies_<D, N, V>(psi, currentParams, currentEnAndPoss, gradientStep);
         std::array<Energy, V> energiesDecreasedParam =
-            ReweightedEnergies_<D, N, V>(psi, result, currentEnAndPoss, -gradientStep);
+            ReweightedEnergies_<D, N, V>(psi, currentParams, currentEnAndPoss, -gradientStep);
         std::array<FPType, V> gradient;
         for (VarParNum v = 0u; v != V; ++v) {
             gradient[v] =
                 (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) / (2 * gradientStep);
         }
 
-        // Try smaller and smaller steps until the new parameters produce a smaller VMC energy
-        FPType gradMultiplier = 2;
-        VarParams<V> newParams;
-        do {
-            gradMultiplier /= 2;
-            for (VarParNum v = 0u; v != V; ++v) {
-                newParams[v].val = result[v].val - gradMultiplier * gradient[v];
-            }
-
-        } while (AvgAndVar_(LocalEnergies_(lepsCalc(newParams))).energy.val > currentEnergy.val);
-
-        // Set the next gradient step to the size of this step
-        FPType const oldParamsNorm = std::sqrt(std::accumulate(
-            result.begin(), result.end(), FPType{0}, [](FPType f, VarParam v) { return f + v.val * v.val; }));
-        gradientStep = std::sqrt(
-            std::inner_product(newParams.begin(), newParams.end(), result.begin(), FPType{0}, std::plus<>(),
-                               [](VarParam v1, VarParam v2) { return std::pow(v1.val - v2.val, 2); }));
-        result = newParams;
-
-        std::cout << result[0].val << '\n';
-
+        // Set as next step used to compute the gradient the current gradient norm, which is also the size of
+        // the step if that step is accepted
+        FPType const oldParamsNorm =
+            std::sqrt(std::accumulate(currentParams.begin(), currentParams.end(), FPType{0},
+                                      [](FPType f, VarParam v) { return f + v.val * v.val; }));
+        gradientStep =
+            std::sqrt(std::inner_product(gradient.begin(), gradient.end(), gradient.begin(), FPType{0}));
         if ((gradientStep / oldParamsNorm) < stoppingThreshold_gradDesc) {
             break;
         }
-    }
 
-    std::cout << '\n';
+        // In order to move, try smaller and smaller steps until the new parameters produce a VMC energy not
+        // much larger than the current one
+        FPType gradMultiplier = 2;
+        VarParams<V> newParams;
+        VMCResult newVMCR;
+        do {
+            gradMultiplier /= 2;
+            for (VarParNum v = 0u; v != V; ++v) {
+                newParams[v].val = currentParams[v].val - gradMultiplier * gradient[v];
+                newVMCR = AvgAndVar_(LocalEnergies_(lepsCalc(newParams)));
+            }
+
+        } while (newVMCR.energy.val >
+                 (currentVMCR.energy.val + gradDescentFraction * std::abs(currentVMCR.energy.val)));
+        currentParams = newParams;
+    }
 
     return result;
 }
 
-// Calculates the parameters of the wavefunction that minimize the VMC energy
+// Calculates the parameters of the wavefunction that minimize the VMC energy, by doing gradient descent from
+// many different initial starting points and picking the one that arrived to the lowest point
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class LocEnAndPossCalculator>
-VarParams<V> BestParameters2_(ParamBounds<V> bounds, Wavefunction const &psi,
-                              LocEnAndPossCalculator const &lepsCalc, RandomGenerator &gen) {
+VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &psi,
+                          LocEnAndPossCalculator const &lepsCalc, UIntType numWalkers, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
-    static_assert(V != UIntType{0});
 
-    std::uniform_real_distribution<FPType> unif(0, 1);
-    struct ParamsAndEnergy {
-        VarParams<V> params;
-        Energy energy;
-    };
-    std::vector<ParamsAndEnergy> paramsAndEnergies(numWalkers_gradDesc);
-
-    for (auto &[params, energy] : paramsAndEnergies) {
-        // FP TODO: Bad indices, bad!
-        for (VarParNum v = 0u; v != V; ++v) {
-            params[v].val = bounds[v].lower.val + bounds[v].Length().val * unif(gen);
-        }
-
-        // Use a modified gradient descent algorithm with termination condition: stop if the new parameters
-        // are too close to the old ones
-        FPType const initialParamsNorm = std::sqrt(
-            std::inner_product(params.begin(), params.end(), params.begin(), FPType{0}, std::plus<>(),
-                               [](VarParam v1, VarParam v2) { return v1.val * v2.val; }));
-        FPType gradientStep = initialParamsNorm / stepDenom_gradDesc;
-
-        for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
-            std::vector<LocEnAndPoss<D, N>> const currentEnAndPoss = lepsCalc(params);
-            Energy const currentEnergy = AvgAndVar_(LocalEnergies_(currentEnAndPoss)).energy;
-
-            std::array<Energy, V> energiesIncreasedParam =
-                ReweightedEnergies_<D, N, V>(psi, params, currentEnAndPoss, gradientStep);
-            std::array<Energy, V> energiesDecreasedParam =
-                ReweightedEnergies_<D, N, V>(psi, params, currentEnAndPoss, -gradientStep);
-            std::array<FPType, V> gradient;
+    if constexpr (V == VarParNum{0u}) {
+        VarParams<0> const fakeParams{};
+        return AvgAndVar_(LocalEnergies_(lepsCalc(fakeParams)));
+    } else {
+        std::uniform_real_distribution<FPType> unif(0, 1);
+        std::vector<VMCResult> vmcResults;
+        vmcResults.reserve(numWalkers);
+        std::generate_n(std::back_inserter(vmcResults), numWalkers_gradDesc, [&]() {
+            VarParams<V> initialParams;
             for (VarParNum v = 0u; v != V; ++v) {
-                gradient[v] =
-                    (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) / (2 * gradientStep);
+                initialParams[v].val = bounds[v].lower.val + bounds[v].Length().val * unif(gen);
             }
-
-            // Try smaller and smaller steps until the new parameters produce a smaller VMC energy
-            FPType gradMultiplier = 2;
-            VarParams<V> newParams;
-            do {
-                gradMultiplier /= 2;
-                for (VarParNum v = 0u; v != V; ++v) {
-                    newParams[v].val = params[v].val - gradMultiplier * gradient[v];
-                }
-
-            } while (AvgAndVar_(LocalEnergies_(lepsCalc(newParams))).energy.val > currentEnergy.val);
-
-            // Set the next gradient step to the size of this step
-            FPType const oldParamsNorm =
-                std::sqrt(std::accumulate(params.begin(), params.end(), FPType{0},
-                                          [](FPType f, VarParam v) { return f + v.val * v.val; }));
-            gradientStep = std::sqrt(std::inner_product(
-                newParams.begin(), newParams.end(), params.begin(), FPType{0}, std::plus<>(),
-                [](VarParam v1, VarParam v2) { return std::pow(v1.val - v2.val, 2); }));
-            params = newParams;
-
-            std::cout << params[0].val << '\n';
-
-            if ((gradientStep / oldParamsNorm) < stoppingThreshold_gradDesc) {
-                energy = currentEnergy;
-                std::cout << "This walker is done. Param[0]: " << params[0].val << ", energy: " << energy.val
-                          << '\n';
-                break;
-            }
-        }
+            return VMCRBestParams_<D, N, V>(initialParams, psi, lepsCalc);
+        });
+        return *std::min_element(vmcResults.begin(), vmcResults.end(), [](VMCResult vmcr1, VMCResult vmcr2) {
+            return vmcr1.energy.val < vmcr2.energy.val;
+        });
     }
-
-    ParamsAndEnergy peResult = *std::min_element(
-        paramsAndEnergies.begin(), paramsAndEnergies.end(),
-        [](ParamsAndEnergy pse1, ParamsAndEnergy pse2) { return pse1.energy.val < pse2.energy.val; });
-    std::cout << "Result: " << peResult.params[0].val << '\n';
-    return peResult.params;
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class SecondDerivative, class Potential>
@@ -505,20 +456,10 @@ template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Secon
 VMCResult VMCEnergy(Wavefunction const &psi, ParamBounds<V> parBounds, SecondDerivative const &secondDer,
                     Mass mass, Potential const &pot, CoordBounds<D> coorBounds, IntType numberEnergies,
                     RandomGenerator &gen) {
-    if constexpr (V != UIntType{0}) {
-        auto const enPossCalculator{[&](VarParams<V> params) {
-            return VMCLocEnAndPoss<D, N, V>(psi, params, secondDer, mass, pot, coorBounds, numberEnergies,
-                                            gen);
-        }};
-        VarParams<V> const bestParams = BestParameters2_<D, N, V>(parBounds, psi, enPossCalculator, gen);
-
-        return AvgAndVar_(LocalEnergies_(VMCLocEnAndPoss<D, N, V>(psi, bestParams, secondDer, mass, pot,
-                                                                  coorBounds, numberEnergies, gen)));
-    } else {
-        VarParams<0> const fakeParams{};
-        return AvgAndVar_(LocalEnergies_(VMCLocEnAndPoss<D, N, V>(psi, fakeParams, secondDer, mass, pot,
-                                                                  coorBounds, numberEnergies, gen)));
-    }
+    auto const enPossCalculator{[&](VarParams<V> vps) {
+        return VMCLocEnAndPoss<D, N, V>(psi, vps, secondDer, mass, pot, coorBounds, numberEnergies, gen);
+    }};
+    return VMCRBestParams_<D, N, V>(parBounds, psi, enPossCalculator, numWalkers_gradDesc, gen);
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative,
@@ -532,27 +473,17 @@ VMCLocEnAndPoss(Wavefunction const &psi, VarParams<V> params, std::array<FirstDe
                                      numberEnergies, gen);
 }
 
-// TODO: Use BestParams2_ (see the other one)
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative,
           class SecondDerivative, class Potential>
-VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> initialParams,
+VMCResult VMCEnergy(Wavefunction const &psi, ParamBounds<V> parBounds,
                     std::array<FirstDerivative, D> const &grad, SecondDerivative const &secondDer, Mass mass,
-                    Potential const &pot, CoordBounds<D> bounds, IntType numberEnergies,
+                    Potential const &pot, CoordBounds<D> coorBounds, IntType numberEnergies,
                     RandomGenerator &gen) {
-    if constexpr (V != UIntType{0}) {
-        auto const enPossCalculator{[&](VarParams<V> params) {
-            return VMCLocEnAndPoss<D, N, V>(psi, params, grad, secondDer, mass, pot, bounds, numberEnergies,
-                                            gen);
-        }};
-        VarParams<V> const bestParams = BestParameters_<D, N, V>(initialParams, psi, enPossCalculator);
-
-        return AvgAndVar_(LocalEnergies_(VMCLocEnAndPoss<D, N, V>(psi, bestParams, grad, secondDer, mass, pot,
-                                                                  bounds, numberEnergies, gen)));
-    } else {
-        VarParams<0> const fakeParams{};
-        return AvgAndVar_(LocalEnergies_(VMCLocEnAndPoss<D, N, V>(psi, fakeParams, grad, secondDer, mass, pot,
-                                                                  bounds, numberEnergies, gen)));
-    }
+    auto const enPossCalculator{[&](VarParams<V> vps) {
+        return VMCLocEnAndPoss<D, N, V>(psi, vps, grad, secondDer, mass, pot, coorBounds, numberEnergies,
+                                        gen);
+    }};
+    return VMCRBestParams_<D, N, V>(parBounds, psi, enPossCalculator, numWalkers_gradDesc, gen);
 }
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
@@ -572,25 +503,15 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &psi, VarPara
                                      mass, pot, bounds, numberEnergies, gen);
 }
 
-// TODO: Use BestParams2_ (see the other one)
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-VMCResult VMCEnergy(Wavefunction const &psi, VarParams<V> initialParams, bool useImpSamp,
-                    FPType derivativeStep, Mass mass, Potential const &pot, CoordBounds<D> bounds,
-                    IntType numberEnergies, RandomGenerator &gen) {
-    if constexpr (V != UIntType{0}) {
-        auto const enPossCalculator{[&](VarParams<V> params) {
-            return VMCLocEnAndPoss<D, N, V>(psi, params, useImpSamp, derivativeStep, mass, pot, bounds,
-                                            numberEnergies, gen);
-        }};
-        VarParams<V> const bestParams = BestParameters_<D, N, V>(initialParams, psi, enPossCalculator);
-
-        return AvgAndVar_(LocalEnergies_(VMCLocEnAndPoss<D, N, V>(psi, bestParams, useImpSamp, derivativeStep,
-                                                                  mass, pot, bounds, numberEnergies, gen)));
-    } else {
-        VarParams<0> const fakeParams{};
-        return AvgAndVar_(LocalEnergies_(VMCLocEnAndPoss<D, N, V>(psi, fakeParams, useImpSamp, derivativeStep,
-                                                                  mass, pot, bounds, numberEnergies, gen)));
-    }
+VMCResult VMCEnergy(Wavefunction const &psi, ParamBounds<V> parBounds, bool useImpSamp, FPType derivativeStep,
+                    Mass mass, Potential const &pot, CoordBounds<D> coorBounds, IntType numberEnergies,
+                    RandomGenerator &gen) {
+    auto const enPossCalculator{[&](VarParams<V> vps) {
+        return VMCLocEnAndPoss<D, N, V>(psi, vps, useImpSamp, derivativeStep, mass, pot, coorBounds,
+                                        numberEnergies, gen);
+    }};
+    return VMCRBestParams_<D, N, V>(parBounds, psi, enPossCalculator, numWalkers_gradDesc, gen);
 }
 
 } // namespace vmcp

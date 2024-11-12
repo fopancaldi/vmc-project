@@ -7,7 +7,7 @@
 using namespace vmcp;
 
 // The various features of main can be toggled here
-constexpr std::array features = {true, false};
+constexpr std::array features = {true, true};
 
 int main() {
     // Feature 1:
@@ -57,18 +57,20 @@ int main() {
                 return x[0][0].val * x[0][0].val * (m.val * omega * omega / 2);
             }
         };
-        Mass mass{5.8f};
-        FPType omega{7.4f};
-        vmcp::VarParams<1> const initialParam{vmcp::VarParam{5 * mass.val * omega / vmcp::hbar}};
+        Mass mass{1.f};
+        FPType omega{2.6f};
+        vmcp::VarParam bestAlpha{mass.val * omega / vmcp::hbar};
+        vmcp::ParamBounds<1> alphaBound{
+            vmcp::Bound{vmcp::VarParam{bestAlpha.val * 0.1f}, vmcp::VarParam{bestAlpha.val * 10}}};
         auto const wavefHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
             return std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
         }};
-        auto const secondDerHO{[&wavefHO](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
-            // FP TODO: Constructing a new object might be expensive
-            return (std::pow(x[0][0].val * alpha[0].val, 2) - alpha[0].val) * wavefHO(x, alpha);
+        auto const secondDerHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
+            return (std::pow(x[0][0].val * alpha[0].val, 2) - alpha[0].val) *
+                   std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
         }};
         PotHO potHO{mass, omega};
-        vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(wavefHO, initialParam, secondDerHO, mass, potHO,
+        vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(wavefHO, alphaBound, secondDerHO, mass, potHO,
                                                               bounds, numberEnergies, rndGen);
 
         std::cout << vmcr.energy.val << '\t' << std::sqrt(vmcr.variance.val) << '\n';
