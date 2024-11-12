@@ -16,11 +16,11 @@
 constexpr vmcp::UIntType seed = 64826;
 constexpr vmcp::IntType iterations = 64;
 // FP TODO: Rename this
-constexpr vmcp::IntType allowedStdDevs = 16;
+constexpr vmcp::IntType allowedStdDevs = 5;
 // FP TODO: Explain, and maybe rename
 constexpr vmcp::FPType stdDevTolerance = 1e-9f;
 // FP TODO: Rename
-constexpr vmcp::IntType varParamsFactor = 8;
+constexpr vmcp::IntType varParamsFactor = 16;
 // FP TODO: One pair of brackets can probably be removed here
 // Learn the priority of the operations and adjust the rest of the code too
 static_assert((iterations % varParamsFactor) == 0);
@@ -133,8 +133,8 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations / varParamsFactor;
                  ++i, m_.val += mStep * varParamsFactor) {
                 potHO.m = m_;
-                for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit};
-                     j != omegaIterations / varParamsFactor; ++j, omega_ += omegaStep * varParamsFactor) {
+                for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
+                     j += varParamsFactor, omega_ += omegaStep * varParamsFactor) {
                     potHO.omega = omega_;
 
                     vmcp::VarParam bestParam{m_.val * omega_ / vmcp::hbar};
@@ -241,8 +241,8 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations / varParamsFactor;
                  ++i, m_.val += mStep * varParamsFactor) {
-                for (auto [j, l_] = std::tuple{vmcp::IntType{0}, lInit}; j != lIterations / varParamsFactor;
-                     ++j, l_ += lStep * varParamsFactor) {
+                for (auto [j, l_] = std::tuple{vmcp::IntType{0}, lInit}; j != lIterations;
+                     j += varParamsFactor, l_ += lStep * varParamsFactor) {
                     vmcp::CoordBounds<1> const coordBound = {
                         vmcp::Bound{vmcp::Coordinate{-l_ / 2}, vmcp::Coordinate{l_ / 2}}};
                     vmcp::VarParam bestParam{std::numbers::pi_v<vmcp::FPType> / l_};
