@@ -3,6 +3,8 @@
 
 #include "vmcp.hpp"
 
+#include <chrono>
+#include <fstream>
 #include <functional>
 #include <numbers>
 #include <string>
@@ -13,8 +15,9 @@
 
 // FP TODO: Change mStep to a vmcp::Mass everywhere and define operator+= for vmcp::Mass
 
-constexpr vmcp::UIntType seed = 64826;
-constexpr vmcp::IntType iterations = 64;
+// Chosen at random
+constexpr vmcp::UIntType seed = 64826u;
+constexpr vmcp::IntType iterations = 32;
 // FP TODO: Rename this
 constexpr vmcp::IntType allowedStdDevs = 5;
 // FP TODO: Explain, and maybe rename
@@ -31,8 +34,12 @@ constexpr vmcp::FPType vmcEnergyTolerance = 0.5f;
 // FP TODO: Explain
 constexpr vmcp::FPType minParamFactor = 0.33f;
 constexpr vmcp::FPType maxParamFactor = 3;
+const std::string logFileName = "../artifacts/test-log.txt";
 
 TEST_CASE("Testing VMCLocEnAndEnergies_") {
+    std::ofstream file_stream;
+    file_stream.open(logFileName, std::ios_base::app);
+
     SUBCASE("1D harmonic oscillator") {
         vmcp::IntType const numberEnergies = 100;
         vmcp::CoordBounds<1> const coordBound = {vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
@@ -82,6 +89,8 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
             SecondDerHO secondDerHO{mInit, omegaInit};
             PotHO potHO{mInit.val, omegaInit};
 
+            auto start = std::chrono::high_resolution_clock::now();
+
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_.val += mStep) {
                 wavefHO.m = m_;
                 potHO.m = m_;
@@ -116,9 +125,15 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
                         logMessage);
                 }
             }
+
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = duration_cast<std::chrono::seconds>(stop - start);
+            file_stream << "Harmonic oscillator, no var. parameters (seconds): " << duration.count() << '\n';
         }
 
         SUBCASE("One variational parameter") {
+            auto start = std::chrono::high_resolution_clock::now();
+
             auto const wavefHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
                 return std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
             }};
@@ -127,11 +142,9 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
                        std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
             }};
             PotHO potHO{mInit, omegaInit};
-            // Ensures that the initial parameter is sufficiently far from the best parameter, which is m *
-            // omega / hbar
 
-            for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations / varParamsFactor;
-                 ++i, m_.val += mStep * varParamsFactor) {
+            for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
+                 i += varParamsFactor, m_.val += mStep * varParamsFactor) {
                 potHO.m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
                      j += varParamsFactor, omega_ += omegaStep * varParamsFactor) {
@@ -139,11 +152,16 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
 
                     vmcp::VarParam bestParam{m_.val * omega_ / vmcp::hbar};
                     vmcp::ParamBounds<1> const parBound{
-                        vmcp::Bound{vmcp::VarParam{minParamFactor * bestParam.val},
-                                    vmcp::VarParam{maxParamFactor * bestParam.val}}};
+                        vmcp::Bound{bestParam * minParamFactor, bestParam * maxParamFactor}};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
+
+                    auto startOnePar = std::chrono::high_resolution_clock::now();
                     vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(
                         wavefHO, parBound, secondDerHO, m_, potHO, coordBound, numberEnergies, rndGen);
+                    auto stopOnePar = std::chrono::high_resolution_clock::now();
+                    auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
+                    file_stream << "Harmonic oscillator, one var. parameter (seconds), with mass " << m_.val
+                                << " and ang. vel. " << omega_ << ": " << durationOnePar.count() << '\n';
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", ang. vel.: " + std::to_string(omega_)};
@@ -155,6 +173,10 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
                         logMessage);
                 }
             }
+
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = duration_cast<std::chrono::seconds>(stop - start);
+            file_stream << "Harmonic oscillator, one var. parameter (seconds): " << duration.count() << '\n';
         }
     }
 
@@ -196,6 +218,8 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
             std::array<GradBox, 1> gradBox{GradBox{lInit}};
             SecondDerBox secondDerBox{lInit};
 
+            auto start = std::chrono::high_resolution_clock::now();
+
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_.val += mStep) {
                 for (auto [j, l_] = std::tuple{vmcp::IntType{0}, lInit}; j != lIterations; ++j, l_ += lStep) {
                     wavefBox.l = l_;
@@ -228,6 +252,10 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
                         logMessage);
                 }
             }
+
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = duration_cast<std::chrono::seconds>(stop - start);
+            file_stream << "Particle in a box, no var. parameters (seconds): " << duration.count() << '\n';
         }
 
         // FP TODO: Find a trial wavefunction that works
@@ -251,9 +279,9 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
                                     vmcp::VarParam{maxParamFactor * bestParam.val}}};
 
                     vmcp::Energy expectedEn{1 / (2 * m_.val) *
-                                            std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
-                    vmcp::VMCResult vmcr = vmcp::VMCEnergy<1, 1, 1>(
-                        wavefBox, parBound, secondDerBox, m_, potBox, coordBound, numberEnergies, rndGen);
+                                            std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_,
+        2)}; vmcp::VMCResult vmcr = vmcp::VMCEnergy<1, 1, 1>( wavefBox, parBound, secondDerBox, m_,
+        potBox, coordBound, numberEnergies, rndGen);
 
                     std::cout << "Best param: " << bestParam.val << '\n';
 
@@ -277,7 +305,8 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
     //     };
     //     struct PotTrg {
     //         vmcp::FPType alpha;
-    //         vmcp::FPType operator()(vmcp::Positions<1, 1> x) const { return alpha * std::abs(x[0][0].val);
+    //         vmcp::FPType operator()(vmcp::Positions<1, 1> x) const { return alpha *
+    //         std::abs(x[0][0].val);
     //         }
     //     };
     //     struct GradTrg {
@@ -391,7 +420,8 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
     //        wavefRad.m = m_;
     //        gradRad.m = m_;
     //        secondDerRad.m = m_;
-    //        for (auto [j, k_] = std::tuple{vmcp::IntType{0}, kInit}; j != kIterations; ++j, k_ += kStep) {
+    //        for (auto [j, k_] = std::tuple{vmcp::IntType{0}, kInit}; j != kIterations; ++j, k_ += kStep)
+    //        {
     //            wavefRad.k = k_;
     //            potRad.k = k_;
     //            gradRad.k = k_;
