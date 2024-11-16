@@ -29,5 +29,11 @@ jobs:
           cmake --build build
       - name: Run tests
         run: |
+          mkdir artifacts
           cd build
           make test
+      - name: Download the test log
+        uses: actions/download-artifact@v4
+        with:
+          name: test-log
+          path: artifacts/tets-log.txt
