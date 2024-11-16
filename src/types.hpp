@@ -9,13 +9,16 @@
 #include <cassert>
 #include <random>
 #include <type_traits>
+#include <atomic>
 
 namespace vmcp {
 
 // 'Structure' types
 //
 // Floating point type, can be adjusted to improve precision or compilation time
-using FPType = long double;
+// 'long double' cannot be used here, see
+// https://stackoverflow.com/questions/60559650/why-does-stdatomiclong-double-block-indefinitely-in-c14
+using FPType = double;
 // Unsigned integer type
 // Only to be used for arrays, sizes etc.
 // When it necessary to count something, use signed integers
@@ -41,6 +44,8 @@ struct Coordinate {
     FPType val;
     Coordinate &operator+=(Coordinate);
     Coordinate &operator-=(Coordinate);
+    Coordinate &operator*=(FPType);
+    Coordinate &operator/=(FPType);
 };
 template <Dimension D>
 using Position = std::array<Coordinate, D>;
@@ -51,6 +56,8 @@ struct VarParam {
     FPType val;
     VarParam &operator+=(VarParam);
     VarParam &operator-=(VarParam);
+    VarParam &operator*=(FPType);
+    VarParam &operator/=(FPType);
 };
 template <VarParNum V>
 using VarParams = std::array<VarParam, V>;

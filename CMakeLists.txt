@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 project(cpp-template VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
@@ -19,6 +19,7 @@ set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 if(BUILD_MAIN)
       add_executable(main-vmc main.cpp src/vmcalgs.cpp)
       target_include_directories(main-vmc PRIVATE src)
+      target_link_libraries(main-vmc tbb atomic)
 endif()
 
 if(BUILD_TESTING)
@@ -27,5 +28,6 @@ if(BUILD_TESTING)
 
       add_executable(test-vmc tests/test.cpp src/vmcalgs.cpp)
       target_include_directories(test-vmc PRIVATE src include)
+      target_link_libraries(test-vmc tbb atomic)
       add_test(NAME test-vmc COMMAND test-vmc)
 endif()
