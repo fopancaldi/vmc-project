@@ -16,9 +16,17 @@
 
 #include <algorithm>
 #include <cassert>
+#include <execution>
 #include <functional>
+#include <mutex>
+#include <ranges>
 
 namespace vmcp {
+
+// FP TODO: For example in FindPeak_, is it really necessary to specify Position<D>?
+// In general, study class template argument deduction
+// Also I believe you are putting too many (), for example: in assert((i / 2) == 3), are the brackets
+// necessary? Study
 
 // Constants
 // Their name is before the underscore
@@ -41,7 +49,7 @@ constexpr IntType maxLoops_gradDesc = 10000;
 constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = 1e-6f;
 constexpr FPType targetAcceptRate_VMCLocEnAndPoss = 0.5f;
-constexpr UIntType numWalkers_gradDesc = 10;
+constexpr UIntType numWalkers_gradDesc = 8;
 // FP TODO: Rename
 constexpr FPType gradDescentFraction = 0.1f;
 
@@ -49,9 +57,8 @@ VMCResult AvgAndVar_(std::vector<Energy> const &);
 
 template <Dimension D, ParticNum N>
 std::vector<Energy> LocalEnergies_(std::vector<LocEnAndPoss<D, N>> const &v) {
-    std::vector<Energy> result;
-    result.reserve(v.size());
-    std::transform(v.begin(), v.end(), std::back_inserter(result),
+    std::vector<Energy> result(v.size());
+    std::transform(std::execution::par_unseq, v.begin(), v.end(), result.begin(),
                    [](LocEnAndPoss<D, N> const &lep) { return lep.energy; });
     return result;
 }
@@ -76,27 +83,32 @@ Positions<D, N> FindPeak_(Wavefunction const &psi, VarParams<V> params, Potentia
     assert(points > 0);
 
     Position<D> center;
-    // TODO: Define some operators for the coordinates?
     std::transform(bounds.begin(), bounds.end(), center.begin(),
-                   [](Bound<Coordinate> b) { return Coordinate{(b.upper.val + b.lower.val) / 2}; });
+                   [](Bound<Coordinate> b) { return (b.upper + b.lower) / 2; });
+    // FP TODO: Can you make it more elegant?
     Positions<D, N> result;
     std::fill(result.begin(), result.end(), center);
     std::uniform_real_distribution<FPType> unif(0, 1);
-    for (IntType i = 0; i != points; ++i) {
+    std::mutex m;
+    auto const indices = std::ranges::views::iota(0, points);
+    // FP TODO: Data race in unif(gen)
+    // Maybe put another mutex? Deadlock risk?
+    std::for_each(std::execution::par, indices.begin(), indices.end(), [&](int) {
         Positions<D, N> newPoss;
-        // FP TODO: Is it really necessary to specify Position<D>?
-        // In general, study class template argument deduction
         for (Position<D> &p : newPoss) {
             std::transform(bounds.begin(), bounds.end(), p.begin(), [&unif, &gen](Bound<Coordinate> b) {
-                return Coordinate{b.lower.val + unif(gen) * (b.upper.val - b.lower.val)};
+                return b.lower + (b.upper - b.lower) * unif(gen);
             });
         }
         // The requirement ... > minPsi avoids having psi(...) = nan in the future, which breaks the update
         // algorithms
-        if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi_peakSearch)) {
-            result = newPoss;
+        {
+            std::lock_guard<std::mutex> l(m);
+            if ((pot(newPoss) > pot(result)) && (psi(newPoss, params) > minPsi_peakSearch)) {
+                result = newPoss;
+            }
         }
-    }
+    });
     return result;
 }
 
@@ -112,6 +124,7 @@ IntType MetropolisUpdate_(Wavefunction const &psi, VarParams<V> params, Position
         FPType const oldPsi = psi(poss, params);
         std::uniform_real_distribution<FPType> unif(0, 1);
         std::transform(p.begin(), p.end(), p.begin(), [&gen, &unif, step](Coordinate c) {
+            // FP TODO: Convert step to Coordinate?
             return c + Coordinate{(unif(gen) - FPType{0.5f}) * step};
         });
         if (unif(gen) < std::pow(psi(poss, params) / oldPsi, 2)) {
@@ -146,6 +159,7 @@ std::array<FPType, D> DriftForceNumeric_(Wavefunction const &psi, VarParams<V> p
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
     std::array<FPType, D> driftForce;
+    // FP TODO: Can you parallelize this?
     for (ParticNum n = 0u; n != N; ++n) {
         for (Dimension d = 0u; d != D; ++d) {
             driftForce[d] = 2 *
@@ -225,6 +239,7 @@ Energy LocalEnergyNumeric_(Wavefunction const &psi, VarParams<V> params, FPType 
     static_assert(IsPotential<D, N, Potential>());
 
     Energy result{pot(poss)};
+    // FP TODO: Can you parallelize this?
     for (ParticNum n = 0u; n != N; ++n) {
         for (Dimension d = 0u; d != D; ++d) {
             result.val +=
@@ -252,8 +267,6 @@ VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytica
     static_assert(IsWavefunctionDerivative<D, N, V, SecondDerivative>());
     static_assert(IsPotential<D, N, Potential>());
     assert(numberEnergies > 0);
-
-    std::vector<LocEnAndPoss<D, N>> result;
 
     // Find a good starting point, in the sense that it's easy to move away from
     Positions<D, N> const peak = FindPeak_<D, N>(psi, params, pot, bounds, points_peakSearch, gen);
@@ -284,6 +297,8 @@ VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytica
             std::function<IntType()>{[&]() { return MetropolisUpdate_<D, N>(psi, params, poss, step, gen); }};
     }
 
+    std::vector<LocEnAndPoss<D, N>> result;
+    result.reserve(static_cast<long unsigned int>(numberEnergies));
     // Move away from the peak, in order to forget the dependence on the initial conditions
     for (IntType i = 0; i != movesForgetICs; ++i) {
         update();
@@ -318,13 +333,13 @@ std::array<Energy, D> ReweightedEnergies_(Wavefunction const &psi, VarParams<V> 
     for (UIntType v = 0u; v != V; ++v) {
         VarParams<V> newParams = oldParams;
         newParams[v].val += step;
-        std::vector<Energy> reweightedLocalEnergies;
-        std::transform(oldLEPs.begin(), oldLEPs.end(), std::back_inserter(reweightedLocalEnergies),
-                       [&psi, newParams, oldParams](LocEnAndPoss<D, N> const &lep) {
-                           return Energy{
-                               std::pow(psi(lep.positions, newParams) / psi(lep.positions, oldParams), 2) *
-                               lep.energy.val};
-                       });
+        std::vector<Energy> reweightedLocalEnergies(oldLEPs.size());
+        std::transform(
+            std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(), reweightedLocalEnergies.begin(),
+            [&psi, newParams, oldParams](LocEnAndPoss<D, N> const &lep) {
+                return Energy{std::pow(psi(lep.positions, newParams) / psi(lep.positions, oldParams), 2) *
+                              lep.energy.val};
+            });
 
         FPType const numerator =
             std::accumulate(reweightedLocalEnergies.begin(), reweightedLocalEnergies.end(), FPType{0},
@@ -415,22 +430,25 @@ VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &psi,
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
 
+    // FP TODO: Why is numWalkers UInt and not Int?
+
     if constexpr (V == VarParNum{0u}) {
-        VarParams<0> const fakeParams{};
+        VarParams<0u> const fakeParams{};
         return AvgAndVar_(LocalEnergies_(lepsCalc(fakeParams)));
     } else {
+        // FP TODO: Data race unif(gen)
         std::uniform_real_distribution<FPType> unif(0, 1);
-        std::vector<VMCResult> vmcResults;
-        vmcResults.reserve(numWalkers);
-        std::generate_n(std::back_inserter(vmcResults), numWalkers_gradDesc, [&]() {
+        std::vector<VMCResult> vmcResults(numWalkers);
+        std::generate_n(std::execution::par_unseq, vmcResults.begin(), numWalkers_gradDesc, [&]() {
             VarParams<V> initialParams;
             for (VarParNum v = 0u; v != V; ++v) {
-                initialParams[v].val = bounds[v].lower.val + bounds[v].Length().val * unif(gen);
+                initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(gen);
             }
             return VMCRBestParams_<D, N, V>(initialParams, psi, lepsCalc);
         });
+
         return *std::min_element(vmcResults.begin(), vmcResults.end(), [](VMCResult vmcr1, VMCResult vmcr2) {
-            return vmcr1.energy.val < vmcr2.energy.val;
+            return vmcr1.energy < vmcr2.energy;
         });
     }
 }
@@ -442,7 +460,7 @@ VMCLocEnAndPoss(Wavefunction const &psi, VarParams<V> params, SecondDerivative c
     struct FakeDeriv {
         FPType operator()(Positions<D, N> const &, VarParams<V>) const {
             assert(false);
-            return FPType{0};
+            return 0;
         }
     };
     std::array<FakeDeriv, D> fakeGrad;

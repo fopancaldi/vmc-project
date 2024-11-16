@@ -43,3 +43,4 @@ See the related [issue](https://github.com/microsoft/vscode-cpptools/issues/6450
 
 1. Find a better way of estimating the constexpr constants, like `thermalizationMoves`.
 2. `int` -> `float` is NOT a promotion! Change the program accordingly. Actually, it is a numeric conversion, and in particular a *safe* conversion, if the integer is reasonably small.
+3. There are too many `.val`. Define opportune operators (for example, `operator+` for the masses).
