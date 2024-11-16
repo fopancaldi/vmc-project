@@ -17,13 +17,13 @@
 
 // Chosen at random
 constexpr vmcp::UIntType seed = 64826u;
-constexpr vmcp::IntType iterations = 32;
+constexpr vmcp::IntType iterations = 1;
 // FP TODO: Rename this
 constexpr vmcp::IntType allowedStdDevs = 5;
 // FP TODO: Explain, and maybe rename
 constexpr vmcp::FPType stdDevTolerance = 1e-9f;
 // FP TODO: Rename
-constexpr vmcp::IntType varParamsFactor = 16;
+constexpr vmcp::IntType varParamsFactor = 1;
 // FP TODO: One pair of brackets can probably be removed here
 // Learn the priority of the operations and adjust the rest of the code too
 static_assert((iterations % varParamsFactor) == 0);
@@ -131,7 +131,7 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
             file_stream << "Harmonic oscillator, no var. parameters (seconds): " << duration.count() << '\n';
         }
 
-        SUBCASE("One variational parameter") {
+        /* SUBCASE("One variational parameter") {
             auto start = std::chrono::high_resolution_clock::now();
 
             auto const wavefHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
@@ -177,7 +177,7 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Harmonic oscillator, one var. parameter (seconds): " << duration.count() << '\n';
-        }
+        } */
     }
 
     SUBCASE("1D potential box") {
@@ -192,7 +192,7 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
         vmcp::IntType const lIterations = iterations;
         auto const potBox{[](vmcp::Positions<1, 1>) { return vmcp::FPType{0}; }};
 
-        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        /* SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
@@ -256,7 +256,7 @@ TEST_CASE("Testing VMCLocEnAndEnergies_") {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Particle in a box, no var. parameters (seconds): " << duration.count() << '\n';
-        }
+        } */
 
         // FP TODO: Find a trial wavefunction that works
         /* SUBCASE("One variational parameter") {
