@@ -32,12 +32,11 @@ Theoretical and Numerical Aspects of Nuclear Physics project by Lorenzo Fabbri a
 
 # General remarks
 
-There is an error message while building the container:
-
-> Error: there is no registered task type 'cppbuild'. Did you miss installing an extension that provides a corresponding task provider?
- 
+1. There is an error message while building the container:
+    > Error: there is no registered task type 'cppbuild'. Did you miss installing an extension that provides a corresponding task provider?
 It is completely harmless.
 See the related [issue](https://github.com/microsoft/vscode-cpptools/issues/6450).
+2. We are only working in cartesian coordinates, at least for now.
 
 # TODO:
 

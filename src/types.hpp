@@ -6,10 +6,10 @@
 // TODO: Use somewhere the Jackson-Freebeerg kinetic energy
 
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <random>
 #include <type_traits>
-#include <atomic>
 
 namespace vmcp {
 
@@ -94,6 +94,13 @@ using CoordBounds = std::array<Bound<Coordinate>, D>;
 template <VarParNum V>
 using ParamBounds = std::array<Bound<VarParam>, V>;
 
+// Derivatives
+template <Dimension D, class FirstDerivative>
+using Gradient = std::array<FirstDerivative, D>;
+template <Dimension D, ParticNum N, class FirstDerivative>
+using Gradients = std::array<Gradient<D, FirstDerivative>, N>;
+template <ParticNum N, class Laplacian>
+using Laplacians = std::array<Laplacian, N>;
 // To (only) be used in a static assertion
 template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunction() {
