@@ -66,7 +66,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                     return std::exp(-x[0][0].val * x[0][0].val * (m.val * omega / (2 * vmcp::hbar)));
                 }
             };
-            struct GradHO {
+            struct FirstDerHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
@@ -74,7 +74,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                            WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
-            struct SecondDerHO {
+            struct LaplHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
@@ -85,29 +85,30 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             };
 
             WavefHO wavefHO{mInit.val, omegaInit};
-            std::array<GradHO, 1> gradHOArr{GradHO{mInit.val, omegaInit}};
-            SecondDerHO secondDerHO{mInit, omegaInit};
+            vmcp::Gradients<1, 1, FirstDerHO> gradHO{FirstDerHO{mInit.val, omegaInit}};
+            vmcp::Laplacians<1, LaplHO> laplHO{LaplHO{mInit, omegaInit}};
             PotHO potHO{mInit.val, omegaInit};
 
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_.val += mStep) {
-                wavefHO.m = m_;
                 potHO.m = m_;
-                secondDerHO.m = m_;
+                wavefHO.m = m_;
+                gradHO[0][0].m = m_;
+                laplHO[0].m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
                      ++j, omega_ += omegaStep) {
                     wavefHO.omega = omega_;
                     potHO.omega = omega_;
-                    secondDerHO.omega = omega_;
+                    laplHO[0].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
                     vmcp::VMCResult const vmcrMetr =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, secondDerHO, m_, potHO,
+                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, laplHO, m_, potHO,
                                                  coordBound, numberEnergies, rndGen);
                     vmcp::VMCResult const vmcrImpSamp =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, gradHOArr, secondDerHO, m_,
-                                                 potHO, coordBound, numberEnergies, rndGen);
+                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO, m_, potHO,
+                                                 coordBound, numberEnergies, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", ang. vel.: " + std::to_string(omega_)};
@@ -132,16 +133,16 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
         }
 
         SUBCASE("One variational parameter") {
-            auto start = std::chrono::high_resolution_clock::now();
-
+            PotHO potHO{mInit, omegaInit};
             auto const wavefHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
                 return std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
             }};
-            auto const secondDerHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
+            std::array laplHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
                 return (std::pow(x[0][0].val * alpha[0].val, 2) - alpha[0].val) *
                        std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
             }};
-            PotHO potHO{mInit, omegaInit};
+
+            auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
                  i += varParamsFactor, m_.val += mStep * varParamsFactor) {
@@ -157,7 +158,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
 
                     auto startOnePar = std::chrono::high_resolution_clock::now();
                     vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(
-                        wavefHO, parBound, secondDerHO, m_, potHO, coordBound, numberEnergies, rndGen);
+                        wavefHO, parBound, laplHO, m_, potHO, coordBound, numberEnergies, rndGen);
                     auto stopOnePar = std::chrono::high_resolution_clock::now();
                     auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
                     file_stream << "Harmonic oscillator, one var. parameter, with mass " << m_.val
@@ -225,7 +226,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                     }
                 }
             };
-            struct GradBox {
+            struct FirstDerBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
                     if (std::abs(x[0][0].val) <= l / 2) {
@@ -236,7 +237,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                     }
                 }
             };
-            struct SecondDerBox {
+            struct LaplBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
                     if (std::abs(x[0][0].val) <= l / 2) {
@@ -249,17 +250,18 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             };
 
             WavefBox wavefBox{lInit};
-            std::array<GradBox, 1> gradBox{GradBox{lInit}};
-            SecondDerBox secondDerBox{lInit};
+            vmcp::Gradients<1, 1, FirstDerBox> gradBox{FirstDerBox{lInit}};
+            vmcp::Laplacians<1, LaplBox> laplBox{lInit};
             PotBox potBox{0, lInit};
 
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_.val += mStep) {
                 for (auto [j, l_] = std::tuple{vmcp::IntType{0}, lInit}; j != lIterations; ++j, l_ += lStep) {
-                    wavefBox.l = l_;
-                    secondDerBox.l = l_;
                     potBox.l = l_;
+                    wavefBox.l = l_;
+                    gradBox[0][0].l = l_;
+                    laplBox[0].l = l_;
 
                     vmcp::CoordBounds<1> const coorBound{
                         vmcp::Bound{vmcp::Coordinate{-l_ / 2}, vmcp::Coordinate{l_ / 2}}};
@@ -267,10 +269,10 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                         1 / (2 * m_.val) * std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
                     potBox.V_0 = 10 * expectedEn.val;
                     vmcp::VMCResult const vmcrMetr =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::ParamBounds<0>{}, secondDerBox, m_, potBox,
+                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::ParamBounds<0>{}, laplBox, m_, potBox,
                                                  coorBound, numberEnergies, rndGen);
                     vmcp::VMCResult const vmcrImpSamp =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::ParamBounds<0>{}, gradBox, secondDerBox, m_,
+                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox, m_,
                                                  potBox, coorBound, numberEnergies, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +

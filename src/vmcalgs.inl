@@ -138,34 +138,38 @@ IntType MetropolisUpdate_(Wavefunction const &psi, VarParams<V> params, Position
 
 // Computes the drift force by using its analytic expression
 template <Dimension D, ParticNum N, VarParNum V, class FirstDerivative, class Wavefunction>
-std::array<FPType, D> DriftForceAnalytic_(Wavefunction const &psi, Positions<D, N> poss, VarParams<V> params,
-                                          std::array<FirstDerivative, D> const &grad) {
+std::array<std::array<FPType, D>, N> DriftForceAnalytic_(Wavefunction const &psi, Positions<D, N> poss,
+                                                         VarParams<V> params,
+                                                         Gradients<D, N, FirstDerivative> const &grads) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
 
-    std::array<FPType, D> gradVal;
-    std::transform(grad.begin(), grad.end(), gradVal.begin(),
-                   [&poss, params](FirstDerivative const &fd) { return fd(poss, params); });
-    std::array<FPType, D> result;
-    std::transform(gradVal.begin(), gradVal.end(), result.begin(),
-                   [&psi, &poss, params](FPType f) { return 2 * f / psi(poss, params); });
+    std::array<std::array<FPType, D>, N> gradsVal;
+    std::array<std::array<FPType, D>, N> result;
+    for (ParticNum n = 0u; n != N; ++n) {
+        std::transform(grads[n].begin(), grads[n].end(), gradsVal[n].begin(),
+                       [&poss, params](FirstDerivative const &fd) { return fd(poss, params); });
+        std::transform(gradsVal[n].begin(), gradsVal[n].end(), result[n].begin(),
+                       [&psi, &poss, params](FPType f) { return 2 * f / psi(poss, params); });
+    }
+
     return result;
 }
 
 // Computes the drift force by numerically estimating the derivative of the wavefunction
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
-std::array<FPType, D> DriftForceNumeric_(Wavefunction const &psi, VarParams<V> params, FPType derivativeStep,
-                                         Positions<D, N> poss) {
+std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &psi, VarParams<V> params,
+                                                        FPType derivativeStep, Positions<D, N> poss) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
     std::array<FPType, D> driftForce;
     // FP TODO: Can you parallelize this?
     for (ParticNum n = 0u; n != N; ++n) {
         for (Dimension d = 0u; d != D; ++d) {
-            driftForce[d] = 2 *
-                            (psi(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
-                             psi(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
-                            (derivativeStep * psi(poss, params));
+            driftForce[n][d] = 2 *
+                               (psi(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                                psi(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
+                               (derivativeStep * psi(poss, params));
         }
     }
 }
@@ -176,7 +180,7 @@ std::array<FPType, D> DriftForceNumeric_(Wavefunction const &psi, VarParams<V> p
 //  updates
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative>
 IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
-                                  std::array<FirstDerivative, D> const &grad, Mass mass,
+                                  Gradients<D, N, FirstDerivative> const &grads, Mass mass,
                                   Positions<D, N> &poss, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
@@ -184,30 +188,36 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
     FPType const diffusionConst = hbar * hbar / (2 * mass.val);
 
     IntType successfulUpdates = 0;
-    for (Position<D> &p : poss) {
+    for (ParticNum n = 0u; n != N; ++n) {
+        Position<D> &p = poss[n];
         Position const oldPos = p;
         FPType const oldPsi = psi(poss, params);
-        std::array<FPType, D> const oldDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
+        std::array<std::array<FPType, D>, N> const oldDriftForce =
+            DriftForceAnalytic_<D, N, V>(psi, poss, params, grads);
         std::normal_distribution<FPType> normal(0, diffusionConst * deltaT);
         for (Dimension d = 0u; d != D; ++d) {
-            p[d].val = oldPos[d].val + diffusionConst * deltaT * (oldDriftForce[d] + normal(gen));
+            p[d].val = oldPos[d].val + diffusionConst * deltaT * (oldDriftForce[n][d] + normal(gen));
         }
         FPType const newPsi = psi(poss, params);
-        std::array<FPType, D> const newDriftForce = DriftForceAnalytic_<D, N, V>(psi, poss, params, grad);
+
         FPType forwardExponent = 0;
         for (Dimension d = 0u; d != D; ++d) {
             forwardExponent -=
-                std::pow(p[d].val - oldPos[d].val - diffusionConst * deltaT * oldDriftForce[d], 2) /
+                std::pow(p[d].val - oldPos[d].val - diffusionConst * deltaT * oldDriftForce[n][d], 2) /
                 (4 * diffusionConst * deltaT);
         }
         FPType const forwardProb = std::exp(forwardExponent);
+
+        std::array<std::array<FPType, D>, N> const newDriftForce =
+            DriftForceAnalytic_<D, N, V>(psi, poss, params, grads);
         FPType backwardExponent = 0;
         for (Dimension d = 0u; d != D; ++d) {
             backwardExponent -=
-                std::pow(oldPos[d].val - p[d].val - diffusionConst * deltaT * newDriftForce[d], 2) /
+                std::pow(oldPos[d].val - p[d].val - diffusionConst * deltaT * newDriftForce[n][d], 2) /
                 (4 * diffusionConst * deltaT);
         }
         FPType const backwardProb = std::exp(backwardExponent);
+
         FPType const acceptanceRatio = (newPsi * newPsi * backwardProb) / (oldPsi * oldPsi * forwardProb);
         std::uniform_real_distribution<FPType> unif(0, 1);
         if (unif(gen) < acceptanceRatio) {
@@ -220,15 +230,18 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &psi, VarParams<V> params,
 }
 
 // Computes the local energy with the analytic formula for the derivative of the wavefunction
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class SecondDerivative, class Potential>
-Energy LocalEnergyAnalytic_(Wavefunction const &psi, VarParams<V> params, SecondDerivative const &secondDer,
-                            Mass mass, Potential const &pot, Positions<D, N> poss) {
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
+Energy LocalEnergyAnalytic_(Wavefunction const &psi, VarParams<V> params,
+                            Laplacians<N, Laplacian> const &lapls, Mass mass, Potential const &pot,
+                            Positions<D, N> poss) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
-    static_assert(IsWavefunctionDerivative<D, N, V, SecondDerivative>());
+    static_assert(IsWavefunctionDerivative<D, N, V, Laplacian>());
     static_assert(IsPotential<D, N, Potential>());
 
-    return Energy{-(hbar * hbar / (2 * mass.val)) * (secondDer(poss, params) / psi(poss, params)) +
-                  pot(poss)};
+    FPType const laplSum =
+        std::accumulate(lapls.begin(), lapls.end(), FPType{0},
+                        [&poss, params](FPType f, Laplacian const &lapl) { return f + lapl(poss, params); });
+    return Energy{-(hbar * hbar / (2 * mass.val)) * (laplSum / psi(poss, params)) + pot(poss)};
 }
 
 // Computes the local energy by numerically estimating the derivative of the wavefunction
@@ -255,16 +268,16 @@ Energy LocalEnergyNumeric_(Wavefunction const &psi, VarParams<V> params, FPType 
 // Computes the energies that will be averaged to obtain the estimate of the GS energy of the VMC algorithm
 // by either using the analytical formula for the derivative or estimating it numerically
 // Use the wrappers to select which method should be used
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative,
-          class SecondDerivative, class Potential>
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
+          class Potential>
 std::vector<LocEnAndPoss<D, N>>
 VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytical, bool useImpSamp,
-                 std::array<FirstDerivative, D> const &grad, SecondDerivative const &secondDer,
+                 Gradients<D, N, FirstDerivative> const &grads, Laplacians<N, Laplacian> const &lapls,
                  FPType derivativeStep, Mass mass, Potential const &pot, CoordBounds<D> bounds,
                  IntType numberEnergies, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
-    static_assert(IsWavefunctionDerivative<D, N, V, SecondDerivative>());
+    static_assert(IsWavefunctionDerivative<D, N, V, Laplacian>());
     static_assert(IsPotential<D, N, Potential>());
     assert(numberEnergies > 0);
 
@@ -283,7 +296,7 @@ VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytica
     std::function<Energy()> localEnergy;
     if (useAnalytical) {
         localEnergy = std::function<Energy()>{
-            [&]() { return LocalEnergyAnalytic_<D, N>(psi, params, secondDer, mass, pot, poss); }};
+            [&]() { return LocalEnergyAnalytic_<D, N>(psi, params, lapls, mass, pot, poss); }};
     } else {
         localEnergy = std::function<Energy()>{
             [&]() { return LocalEnergyNumeric_<D, N>(psi, params, derivativeStep, mass, pot, poss); }};
@@ -291,7 +304,7 @@ VMCLocEnAndPoss_(Wavefunction const &psi, VarParams<V> params, bool useAnalytica
     std::function<IntType()> update;
     if (useImpSamp) {
         update = std::function<IntType()>{
-            [&]() { return ImportanceSamplingUpdate_<D, N>(psi, params, grad, mass, poss, gen); }};
+            [&]() { return ImportanceSamplingUpdate_<D, N>(psi, params, grads, mass, poss, gen); }};
     } else {
         update =
             std::function<IntType()>{[&]() { return MetropolisUpdate_<D, N>(psi, params, poss, step, gen); }};
@@ -453,53 +466,52 @@ VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &psi,
     }
 }
 
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class SecondDerivative, class Potential>
-std::vector<LocEnAndPoss<D, N>>
-VMCLocEnAndPoss(Wavefunction const &psi, VarParams<V> params, SecondDerivative const &secondDer, Mass mass,
-                Potential const &pot, CoordBounds<D> bounds, IntType numberEnergies, RandomGenerator &gen) {
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
+std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &psi, VarParams<V> params,
+                                                Laplacians<N, Laplacian> const &lapls, Mass mass,
+                                                Potential const &pot, CoordBounds<D> bounds,
+                                                IntType numberEnergies, RandomGenerator &gen) {
     struct FakeDeriv {
         FPType operator()(Positions<D, N> const &, VarParams<V>) const {
             assert(false);
             return 0;
         }
     };
-    std::array<FakeDeriv, D> fakeGrad;
-    std::fill(fakeGrad.begin(), fakeGrad.end(), FakeDeriv{});
+    Gradients<D, N, FakeDeriv> fakeGrads;
     FPType const fakeStep = std::numeric_limits<FPType>::quiet_NaN();
-    return VMCLocEnAndPoss_<D, N, V>(psi, params, true, false, fakeGrad, secondDer, fakeStep, mass, pot,
-                                     bounds, numberEnergies, gen);
+    return VMCLocEnAndPoss_<D, N, V>(psi, params, true, false, fakeGrads, lapls, fakeStep, mass, pot, bounds,
+                                     numberEnergies, gen);
 }
 
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class SecondDerivative, class Potential>
-VMCResult VMCEnergy(Wavefunction const &psi, ParamBounds<V> parBounds, SecondDerivative const &secondDer,
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
+VMCResult VMCEnergy(Wavefunction const &psi, ParamBounds<V> parBounds, Laplacians<N, Laplacian> const &lapls,
                     Mass mass, Potential const &pot, CoordBounds<D> coorBounds, IntType numberEnergies,
                     RandomGenerator &gen) {
     auto const enPossCalculator{[&](VarParams<V> vps) {
-        return VMCLocEnAndPoss<D, N, V>(psi, vps, secondDer, mass, pot, coorBounds, numberEnergies, gen);
+        return VMCLocEnAndPoss<D, N, V>(psi, vps, lapls, mass, pot, coorBounds, numberEnergies, gen);
     }};
     return VMCRBestParams_<D, N, V>(parBounds, psi, enPossCalculator, numWalkers_gradDesc, gen);
 }
 
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative,
-          class SecondDerivative, class Potential>
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
+          class Potential>
 std::vector<LocEnAndPoss<D, N>>
-VMCLocEnAndPoss(Wavefunction const &psi, VarParams<V> params, std::array<FirstDerivative, D> const &grad,
-                SecondDerivative const &secondDer, Mass mass, Potential const &pot, CoordBounds<D> bounds,
+VMCLocEnAndPoss(Wavefunction const &psi, VarParams<V> params, Gradients<D, N, FirstDerivative> const &grads,
+                Laplacians<N, Laplacian> const &lapls, Mass mass, Potential const &pot, CoordBounds<D> bounds,
                 IntType numberEnergies, RandomGenerator &gen) {
     FPType const fakeStep = std::numeric_limits<FPType>::quiet_NaN();
-    return VMCLocEnAndPoss_<D, N, V>(psi, params, true, false, grad, secondDer, fakeStep, mass, pot, bounds,
+    return VMCLocEnAndPoss_<D, N, V>(psi, params, true, false, grads, lapls, fakeStep, mass, pot, bounds,
                                      numberEnergies, gen);
 }
 
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative,
-          class SecondDerivative, class Potential>
+template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
+          class Potential>
 VMCResult VMCEnergy(Wavefunction const &psi, ParamBounds<V> parBounds,
-                    std::array<FirstDerivative, D> const &grad, SecondDerivative const &secondDer, Mass mass,
-                    Potential const &pot, CoordBounds<D> coorBounds, IntType numberEnergies,
+                    Gradients<D, N, FirstDerivative> const &grads, Laplacians<N, Laplacian> const &lapls,
+                    Mass mass, Potential const &pot, CoordBounds<D> coorBounds, IntType numberEnergies,
                     RandomGenerator &gen) {
     auto const enPossCalculator{[&](VarParams<V> vps) {
-        return VMCLocEnAndPoss<D, N, V>(psi, vps, grad, secondDer, mass, pot, coorBounds, numberEnergies,
-                                        gen);
+        return VMCLocEnAndPoss<D, N, V>(psi, vps, grads, lapls, mass, pot, coorBounds, numberEnergies, gen);
     }};
     return VMCRBestParams_<D, N, V>(parBounds, psi, enPossCalculator, numWalkers_gradDesc, gen);
 }
@@ -515,9 +527,9 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &psi, VarPara
             return FPType{0};
         }
     };
-    std::array<FakeDeriv, D> fakeGrad;
-    std::fill(fakeGrad.begin(), fakeGrad.end(), FakeDeriv{});
-    return VMCLocEnAndPoss_<D, N, V>(psi, params, false, useImpSamp, fakeGrad, FakeDeriv{}, derivativeStep,
+    Gradients<D, N, FakeDeriv> fakeGrads;
+    std::array<FakeDeriv, N> fakeLapls;
+    return VMCLocEnAndPoss_<D, N, V>(psi, params, false, useImpSamp, fakeGrads, fakeLapls, derivativeStep,
                                      mass, pot, bounds, numberEnergies, gen);
 }
 
