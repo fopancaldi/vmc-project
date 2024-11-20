@@ -1,4 +1,12 @@
-// Wrapper header
+//!
+//! @file vmcp.hpp
+//! @brief Wrapper header
+//! @author Lorenzo Fabbri
+//! @author Francesco Orso Pancaldi
+//!
+//! Wrapper header for vmc-project.
+//! Is the only header that should be #included when using the library.
+//!
 
 #ifndef VMCPROJECT_VMCP_HPP
 #define VMCPROJECT_VMCP_HPP
