@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <execution>
 #include <functional>
 #include <mutex>
@@ -49,7 +50,7 @@ constexpr IntType maxLoops_gradDesc = 100000;
 constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = 1e-9f;
 constexpr FPType targetAcceptRate_VMCLocEnAndPoss = 0.5f;
-constexpr UIntType numWalkers_gradDesc = 8;
+constexpr IntType numWalkers_gradDesc = 8;
 // FP TODO: Rename
 constexpr FPType gradDescentFraction = 0.1f;
 
@@ -59,7 +60,7 @@ template <Dimension D, ParticNum N>
 std::vector<Energy> LocalEnergies_(std::vector<LocEnAndPoss<D, N>> const &v) {
     std::vector<Energy> result(v.size());
     std::transform(std::execution::par_unseq, v.begin(), v.end(), result.begin(),
-                   [](LocEnAndPoss<D, N> const &lep) { return lep.energy; });
+                   [](LocEnAndPoss<D, N> const &lep) { return lep.localEn; });
     return result;
 }
 
@@ -355,7 +356,7 @@ std::array<Energy, D> ReweightedEnergies_(Wavefunction const &psi, VarParams<V> 
             std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(), reweightedLocalEnergies.begin(),
             [&psi, newParams, oldParams](LocEnAndPoss<D, N> const &lep) {
                 return Energy{std::pow(psi(lep.positions, newParams) / psi(lep.positions, oldParams), 2) *
-                              lep.energy.val};
+                              lep.localEn.val};
             });
 
         FPType const numerator =
@@ -403,8 +404,10 @@ VMCResult VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &psi,
             ReweightedEnergies_<D, N, V>(psi, currentParams, currentEnAndPoss, -gradientStep);
         std::array<FPType, V> gradient;
         for (VarParNum v = 0u; v != V; ++v) {
-            gradient[v] =
+            FPType const component =
                 (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) / (2 * gradientStep);
+            assert(!std::isnan(component));
+            gradient[v] = component;
         }
 
         // Set as next step used to compute the gradient the current gradient norm, which is also the size of
@@ -449,8 +452,6 @@ VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &psi,
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
-
-    // FP TODO: Why is numWalkers UInt and not Int?
 
     if constexpr (V == VarParNum{0u}) {
         VarParams<0u> const fakeParams{};
