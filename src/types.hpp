@@ -64,7 +64,13 @@ using VarParams = std::array<VarParam, V>;
 // Mass
 struct Mass {
     FPType val;
+    Mass &operator+=(Mass);
+    Mass &operator-=(Mass);
+    Mass &operator*=(FPType);
+    Mass &operator/=(FPType);
 };
+template<ParticNum N>
+using Masses = std::array<Mass, N>;
 // Variational Monte Carlo algorithm result
 struct Energy {
     FPType val;

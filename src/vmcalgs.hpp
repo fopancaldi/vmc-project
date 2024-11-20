@@ -13,13 +13,13 @@ namespace vmcp {
 // and the Metropolis algorithm
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
 std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>,
-                                                Laplacians<N, Laplacian> const &, Mass, Potential const &,
+                                                Laplacians<N, Laplacian> const &, Masses<N>, Potential const &,
                                                 CoordBounds<D>, IntType, RandomGenerator &);
 
 // Computes energy and variance by using the VMC algorithm with the analytical formula for the derivative and
 // the Metropolis algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Mass,
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Masses<N>,
                     Potential const &, CoordBounds<D>, IntType, RandomGenerator &);
 
 // Computes energies and positions by using the VMC algorithm with the analytical formula for the derivative
@@ -28,7 +28,7 @@ template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class First
           class Potential>
 std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>,
                                                 Gradients<D, N, FirstDerivative> const &,
-                                                Laplacians<N, Laplacian> const &, Mass, Potential const &,
+                                                Laplacians<N, Laplacian> const &, Masses<N>, Potential const &,
                                                 CoordBounds<D>, IntType, RandomGenerator &);
 
 // Computes energy and variance by using the VMC algorithm with the analytical formula for the derivative and
@@ -36,20 +36,20 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
 VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Gradients<D, N, FirstDerivative> const &,
-                    Laplacians<N, Laplacian> const &, Mass, Potential const &, CoordBounds<D>, IntType,
+                    Laplacians<N, Laplacian> const &, Masses<N>, Potential const &, CoordBounds<D>, IntType,
                     RandomGenerator &);
 
 // Computes energies and positions by using the VMC algorithm with a numerical estimation of the derivative
 // and either the Metropolis or the importance sampling algorithm
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, bool, FPType, Mass,
+std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, bool, FPType, Masses<N>,
                                                 Potential const &, CoordBounds<D>, IntType,
                                                 RandomGenerator &);
 
 // Computes energy and variance using the VMC algorithm with with a numerical estimation of the derivative
 // and the either the Metropolis or the importance sampling algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Mass, Potential const &,
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masses<N>, Potential const &,
                     CoordBounds<D>, IntType, RandomGenerator &);
 
 } // namespace vmcp

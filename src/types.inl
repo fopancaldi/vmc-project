@@ -59,6 +59,28 @@ inline VarParam operator*(VarParam lhs, FPType rhs) { return lhs *= rhs; }
 inline VarParam operator*(FPType lhs, VarParam rhs) { return rhs * lhs; }
 inline VarParam operator/(VarParam lhs, FPType rhs) { return lhs /= rhs; }
 
+inline Mass &Mass::operator+=(Mass other) {
+    val += other.val;
+    return *this;
+}
+inline Mass &Mass::operator-=(Mass other) {
+    val -= other.val;
+    return *this;
+}
+inline Mass &Mass::operator*=(FPType other) {
+    val *= other;
+    return *this;
+}
+inline Mass &Mass::operator/=(FPType other) {
+    val /= other;
+    return *this;
+}
+inline Mass operator+(Mass lhs, Mass rhs) { return lhs += rhs; }
+inline Mass operator-(Mass lhs, Mass rhs) { return lhs -= rhs; }
+inline Mass operator*(Mass lhs, FPType rhs) { return lhs *= rhs; }
+inline Mass operator*(FPType lhs, Mass rhs) { return rhs * lhs; }
+inline Mass operator/(Mass lhs, FPType rhs) { return lhs /= rhs; }
+
 inline bool operator<(Energy lhs, Energy rhs) { return lhs.val < rhs.val; }
 
 } // namespace vmcp
