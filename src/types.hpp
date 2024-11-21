@@ -19,6 +19,7 @@
 #include <array>
 #include <atomic>
 #include <cassert>
+#include <iostream>
 #include <random>
 #include <type_traits>
 
@@ -38,14 +39,12 @@ namespace vmcp {
 //! See https://stackoverflow.com/questions/60559650/why-does-stdatomiclong-double-block-indefinitely-in-c14
 using FPType = double;
 static_assert(std::is_floating_point_v<FPType>);
-
 //! @brief Signed integer type
 //!
 //! The type to use when an integer is needed, even if that integer is guaranteed to be non-negative.
 using IntType = int;
 static_assert(std::is_integral_v<IntType>);
 static_assert(std::is_signed_v<IntType>);
-
 //! @brief Unsigned integer type
 //!
 //! Should be used instead of IntType only when unsigned integers are explicitly required (for example, in a
@@ -53,7 +52,6 @@ static_assert(std::is_signed_v<IntType>);
 using UIntType = long unsigned int;
 static_assert(std::is_integral_v<UIntType>);
 static_assert(std::is_unsigned_v<UIntType>);
-
 //! @brief Random generator type
 //!
 //! Used instead of default_random_engine since that one is implementation-defined.
@@ -70,13 +68,10 @@ using RandomGenerator = std::mt19937;
 
 //! @brief Number of space dimensions
 using Dimension = UIntType;
-
 //! @brief Number of particles
 using ParticNum = UIntType;
-
 //! @brief Number of variational parameters
 using VarParNum = UIntType;
-
 //! @brief Position of one particle in one dimension
 struct Coordinate {
     FPType val;
@@ -101,15 +96,12 @@ inline Coordinate operator+(Coordinate lhs, Coordinate rhs) { return lhs += rhs;
 inline Coordinate operator-(Coordinate lhs, Coordinate rhs) { return lhs -= rhs; }
 inline Coordinate operator*(Coordinate lhs, FPType rhs) { return lhs *= rhs; }
 inline Coordinate operator/(Coordinate lhs, FPType rhs) { return lhs /= rhs; }
-
 //! @brief Position of one particle in D dimensions
 template <Dimension D>
 using Position = std::array<Coordinate, D>;
-
 //! @brief Position of N particles in D dimensions
 template <Dimension D, ParticNum N>
 using Positions = std::array<Position<D>, N>;
-
 //! @brief Variational parameter
 struct VarParam {
     FPType val;
@@ -135,11 +127,9 @@ inline VarParam operator-(VarParam lhs, VarParam rhs) { return lhs -= rhs; }
 inline VarParam operator*(VarParam lhs, FPType rhs) { return lhs *= rhs; }
 inline VarParam operator*(FPType lhs, VarParam rhs) { return rhs * lhs; }
 inline VarParam operator/(VarParam lhs, FPType rhs) { return lhs /= rhs; }
-
 //! @brief Set of V variational parameters
 template <VarParNum V>
 using VarParams = std::array<VarParam, V>;
-
 //! @brief Mass of one particle
 struct Mass {
     FPType val;
@@ -165,41 +155,80 @@ inline Mass operator-(Mass lhs, Mass rhs) { return lhs -= rhs; }
 inline Mass operator*(Mass lhs, FPType rhs) { return lhs *= rhs; }
 inline Mass operator*(FPType lhs, Mass rhs) { return rhs * lhs; }
 inline Mass operator/(Mass lhs, FPType rhs) { return lhs /= rhs; }
-
 //! @brief Masses on N particles
 template <ParticNum N>
 using Masses = std::array<Mass, N>;
-
 //! @brief Energy of the system
 struct Energy {
     FPType val;
+    Energy &operator+=(Energy other) {
+        val += other.val;
+        return *this;
+    }
+    Energy &operator-=(Energy other) {
+        val -= other.val;
+        return *this;
+    }
+    Energy &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    Energy &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
+    friend std::ostream &operator<<(std::ostream &os, Energy e) { return os << e.val; }
 };
+inline Energy operator+(Energy lhs, Energy rhs) { return lhs += rhs; }
+inline Energy operator-(Energy lhs, Energy rhs) { return lhs -= rhs; }
+inline Energy operator*(Energy lhs, FPType rhs) { return lhs *= rhs; }
+inline Energy operator*(FPType lhs, Energy rhs) { return rhs * lhs; }
+inline Energy operator/(Energy lhs, FPType rhs) { return lhs /= rhs; }
 inline bool operator<(Energy lhs, Energy rhs) { return lhs.val < rhs.val; }
-
-//! @brief Variance on the average of the energies
-//!
-//! Not to be confused with the variance on the energy.
-//! Has 'units of measurement' Energy^2
-struct EnVariance {
+inline bool operator>(Energy lhs, Energy rhs) { return lhs.val > rhs.val; }
+inline Energy max(Energy lhs, Energy rhs) { return lhs > rhs ? lhs : rhs; }
+inline Energy abs(Energy e) { return Energy{std::abs(e.val)}; };
+//! @brief Square of the energy of the system
+struct EnSquared {
     FPType val;
+    EnSquared &operator+=(EnSquared other) {
+        val += other.val;
+        return *this;
+    }
+    EnSquared &operator-=(EnSquared other) {
+        val -= other.val;
+        return *this;
+    }
+    EnSquared &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    EnSquared &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
-
+inline EnSquared operator+(EnSquared lhs, EnSquared rhs) { return lhs += rhs; }
+inline EnSquared operator-(EnSquared lhs, EnSquared rhs) { return lhs -= rhs; }
+inline EnSquared operator*(EnSquared lhs, FPType rhs) { return lhs *= rhs; }
+inline EnSquared operator*(FPType lhs, EnSquared rhs) { return rhs * lhs; }
+inline EnSquared operator/(EnSquared lhs, FPType rhs) { return lhs /= rhs; }
+inline EnSquared operator*(Energy lhs, Energy rhs) { return EnSquared{lhs.val * rhs.val}; }
+inline Energy sqrt(EnSquared es) { return Energy{std::sqrt(es.val)}; }
 //! @brief Average of the energy and its error
 struct VMCResult {
     Energy energy;
-    EnVariance variance;
+    Energy stdDev;
 };
-
 //! @brief Local energy and the positions of the particles when it was computed
 template <Dimension D, ParticNum N>
 struct LocEnAndPoss {
     Energy localEn;
     Positions<D, N> positions;
 };
-
 //! @brief One-dimensional interval
 //!
-//! Requires the templated type to be a class with public member 'val'.
+//! Requires the templated type to be a class (or struct) with public member 'val'.
 template <typename T>
 struct Bound {
     T lower;
@@ -207,11 +236,9 @@ struct Bound {
     Bound(T lower_, T upper_) : lower{lower_}, upper{upper_} { assert(upper.val >= lower.val); }
     T Length() const { return upper - lower; }
 };
-
 //! @brief D-dimensional coordinate interval
 template <Dimension D>
 using CoordBounds = std::array<Bound<Coordinate>, D>;
-
 //! @brief Intervals for V variational parameters
 template <VarParNum V>
 using ParamBounds = std::array<Bound<VarParam>, V>;
@@ -234,7 +261,6 @@ template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunction() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }
-
 //! @brief Checks the signature of the function
 //! @return Whether the function has the correct signature
 //!
@@ -244,7 +270,6 @@ template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunctionDerivative() {
     return IsWavefunction<D, N, V, Function>();
 }
-
 //! @brief Checks the signature of the function
 //! @return Whether the function has the correct signature
 //!
@@ -262,11 +287,9 @@ constexpr bool IsPotential() {
 //! @brief Gradient for one particle in D dimensions
 template <Dimension D, class FirstDerivative>
 using Gradient = std::array<FirstDerivative, D>;
-
 //! @brief Gradients for N particles in D dimensions
 template <Dimension D, ParticNum N, class FirstDerivative>
 using Gradients = std::array<Gradient<D, FirstDerivative>, N>;
-
 //! @brief Laplacians for N particles
 template <ParticNum N, class Laplacian>
 using Laplacians = std::array<Laplacian, N>;

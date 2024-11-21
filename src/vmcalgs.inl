@@ -7,7 +7,6 @@
 //! Among the helper functions used in said definitions, the templated ones are also defined here, while the
 //! non-templated ones are in the .inl file.
 //! @see vmcalgs.hpp
-//! @see vmcalgs.cpp
 //!
 
 // TODO: remove all those damn unserscores
@@ -30,6 +29,7 @@
 #include <execution>
 #include <functional>
 #include <mutex>
+#include <numeric>
 #include <ranges>
 
 namespace vmcp {
@@ -89,14 +89,23 @@ constexpr FPType deltaT = 0.005f;
 //! @brief Help the core functions.
 //! @{
 
-VMCResult AvgAndVar_(std::vector<Energy> const &);
-
+//! @brief Calculates the mean and its error (by taking just one standard deviation)
+//! @param v The energies and positions, where only the energies will be averaged
+//! @return The mean and its (!= the) standard deviation
 template <Dimension D, ParticNum N>
-std::vector<Energy> LocalEnergies_(std::vector<LocEnAndPoss<D, N>> const &v) {
-    std::vector<Energy> result(v.size());
-    std::transform(std::execution::par_unseq, v.begin(), v.end(), result.begin(),
-                   [](LocEnAndPoss<D, N> const &lep) { return lep.localEn; });
-    return result;
+VMCResult MeanAndErr_(std::vector<LocEnAndPoss<D, N>> const &v) {
+    assert(v.size() > 1);
+
+    auto const size = std::ssize(v);
+    Energy const mean = std::accumulate(v.begin(), v.end(), Energy{0},
+                                        [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
+                        static_cast<FPType>(size);
+    EnSquared const meanVar = std::accumulate(v.begin(), v.end(), EnSquared{0},
+                                              [mean](EnSquared es, LocEnAndPoss<D, N> const &leps) {
+                                                  return es + (leps.localEn - mean) * (leps.localEn - mean);
+                                              }) /
+                              static_cast<FPType>(size * (size - 1));
+    return VMCResult{mean, sqrt(meanVar)};
 }
 
 //! @brief Moves one particle in a cardinal direction
@@ -362,10 +371,6 @@ Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPTyp
     return result;
 }
 
-
-
-
-
 //! @brief Computes the mean energy by using the reweighting method, after moving one parameter in a cardinal
 //! direction
 //! @param wavef The wavefunction
@@ -549,7 +554,7 @@ VMCResult VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wavef,
 
     for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
         std::vector<LocEnAndPoss<D, N>> const currentEnAndPoss = lepsCalc(currentParams);
-        VMCResult const currentVMCR = AvgAndVar_(LocalEnergies_(currentEnAndPoss));
+        VMCResult const currentVMCR = MeanAndErr_(currentEnAndPoss);
         result = currentVMCR;
 
         // Compute the gradient by using reweighting
@@ -585,7 +590,7 @@ VMCResult VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wavef,
             gradMultiplier /= 2;
             for (VarParNum v = 0u; v != V; ++v) {
                 newParams[v].val = currentParams[v].val - gradMultiplier * gradient[v];
-                newVMCR = AvgAndVar_(LocalEnergies_(lepsCalc(newParams)));
+                newVMCR = MeanAndErr_(lepsCalc(newParams));
             }
 
         } while (newVMCR.energy.val >
@@ -620,7 +625,7 @@ VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
 
     if constexpr (V == VarParNum{0u}) {
         VarParams<0u> const fakeParams{};
-        return AvgAndVar_(LocalEnergies_(lepsCalc(fakeParams)));
+        return MeanAndErr_(lepsCalc(fakeParams));
     } else {
         // FP TODO: Data race unif(gen)
         std::uniform_real_distribution<FPType> unif(0, 1);
