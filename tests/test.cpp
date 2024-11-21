@@ -22,7 +22,7 @@ vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFact
 TEST_CASE("Testing VMCLocEnAndPoss_") {
     // Chosen at random, but fixed to guarantee reproducibility of failed tests
     constexpr vmcp::UIntType seed = 648265u;
-    constexpr vmcp::IntType iterations = 16;
+    constexpr vmcp::IntType iterations = 64;
     // FP TODO: Rename this
     constexpr vmcp::IntType allowedStdDevs = 20;
     // If the standard deviation is smaller than this, it is highly probable that numerical errors were
@@ -31,7 +31,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
     // So should this be constexpr?
     const vmcp::FPType stdDevTolerance = std::numeric_limits<vmcp::FPType>::epsilon() * 100;
     // FP TODO: Rename
-    constexpr vmcp::IntType varParamsFactor = 16;
+    constexpr vmcp::IntType varParamsFactor = 32;
     // FP TODO: One pair of brackets can probably be removed here
     // Learn the priority of the operations and adjust the rest of the code too
     static_assert((iterations % varParamsFactor) == 0);
@@ -69,7 +69,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             }
         };
 
-        /* SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
@@ -141,7 +141,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Harmonic oscillator, no var. parameters (seconds): " << duration.count() << '\n';
-        } */
+        }
 
         SUBCASE("One variational parameter") {
             PotHO potHO{mInit, omegaInit};
@@ -193,7 +193,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
         }
     }
 
-    /* SUBCASE("1D harmonic oscillator, with two particles") {
+    SUBCASE("1D harmonic oscillator, with two particles") {
         vmcp::IntType const numberEnergies = 1 << 7;
         vmcp::CoordBounds<1> const coordBounds{vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
         vmcp::RandomGenerator rndGen{seed};
@@ -234,7 +234,8 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                     assert(particle <= 1);
                 }
                 vmcp::FPType operator()(vmcp::Positions<1, 2> x, vmcp::VarParams<0>) const {
-                    return -x[particle][0].val * (m[particle].val * omega[particle] / (vmcp::hbar)) *
+                    vmcp::UIntType uPar = static_cast<vmcp::UIntType>(particle);
+                    return -x[uPar][0].val * (m[uPar].val * omega[uPar] / vmcp::hbar) *
                            WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
@@ -249,8 +250,9 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                     assert(particle <= 1);
                 }
                 vmcp::FPType operator()(vmcp::Positions<1, 2> x, vmcp::VarParams<0>) const {
-                    return (std::pow(x[particle][0].val * m[particle].val * omega[particle] / vmcp::hbar, 2) -
-                            m[particle].val * omega[particle] / vmcp::hbar) *
+                    vmcp::UIntType uPar = static_cast<vmcp::UIntType>(particle);
+                    return (std::pow(x[uPar][0].val * m[uPar].val * omega[uPar] / vmcp::hbar, 2) -
+                            m[uPar].val * omega[uPar] / vmcp::hbar) *
                            WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
@@ -310,7 +312,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Harmonic oscillator, no var. parameters (seconds): " << duration.count() << '\n';
         }
-    } */
+    }
 
     SUBCASE("1D potential box") {
         // l = length of the box
@@ -346,7 +348,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
         //    }
         // };
 
-        /* SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
@@ -426,7 +428,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Particle in a box, no var. parameters (seconds): " << duration.count() << '\n';
-        } */
+        }
 
         // FP TODO: Fix this
         // SUBCASE("One variational parameter") {

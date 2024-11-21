@@ -407,7 +407,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
         *(std::min_element(bounds.begin(), bounds.end(), [](Bound<Coordinate> b1, Bound<Coordinate> b2) {
             return b1.Length().val < b2.Length().val;
         }));
-    FPType step = smallestBound.Length().val / boundSteps;
+    FPType step = smallestBound.Length().val / stepDenom_vmcLEPs;
 
     // Save the energies to be averaged
     Positions<D, N> poss = peak;
