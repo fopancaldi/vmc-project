@@ -29,7 +29,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
     // non-negligible
     // FP TODO: If you declare this as constexpr, intellisense complains but the program compiles
     // So should this be constexpr?
-    const vmcp::FPType stdDevTolerance = std::numeric_limits<vmcp::FPType>::epsilon() * 100;
+    const vmcp::Energy stdDevTolerance{std::numeric_limits<vmcp::FPType>::epsilon() * 100};
     // FP TODO: Rename
     constexpr vmcp::IntType varParamsFactor = 32;
     // FP TODO: One pair of brackets can probably be removed here
@@ -39,7 +39,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
     // constexpr bool testImpSamp = true;
     // Rules out situations where both the VMC energy and the variance are extremely large, so the test
     // succeds
-    constexpr vmcp::FPType vmcEnergyTolerance = 0.5f;
+    constexpr vmcp::Energy vmcEnergyTolerance{0.5f};
     // FP TODO: Explain
     constexpr vmcp::FPType minParamFactor = 0.33f;
     constexpr vmcp::FPType maxParamFactor = 3;
@@ -123,18 +123,14 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", ang. vel.: " + std::to_string(omega_)};
-                    CHECK_MESSAGE(std::abs(vmcrMetr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
+                                      max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcrMetr.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance),
-                        logMessage);
-                    CHECK_MESSAGE(std::abs(vmcrImpSamp.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
+                                      max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance),
-                        logMessage);
                 }
             }
 
@@ -178,12 +174,10 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", ang. vel.: " + std::to_string(omega_)};
-                    CHECK_MESSAGE(std::abs(vmcr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                      max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcr.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcr.variance.val)), stdDevTolerance),
-                        logMessage);
                 }
             }
 
@@ -293,18 +287,14 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
                     std::string logMessage{
                         "masses: " + std::to_string(m_[0].val) + ", " + std::to_string(m_[1].val) +
                         ", ang. vels.: " + std::to_string(omega_[0]) + ", " + std::to_string(omega_[1])};
-                    CHECK_MESSAGE(std::abs(vmcrMetr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
+                                      max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcrMetr.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance),
-                        logMessage);
-                    CHECK_MESSAGE(std::abs(vmcrImpSamp.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
+                                      max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance),
-                        logMessage);
                 }
             }
 
@@ -410,18 +400,14 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", length: " + std::to_string(l_)};
-                    CHECK_MESSAGE(std::abs(vmcrMetr.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
+                                      max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcrMetr.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcrMetr.variance.val)), stdDevTolerance),
-                        logMessage);
-                    CHECK_MESSAGE(std::abs(vmcrImpSamp.energy.val - expectedEn.val) < vmcEnergyTolerance,
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
+                                      max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-                    CHECK_MESSAGE(
-                        std::abs(vmcrImpSamp.energy.val - expectedEn.val) <
-                            std::max((allowedStdDevs * std::sqrt(vmcrImpSamp.variance.val)), stdDevTolerance),
-                        logMessage);
                 }
             }
 
