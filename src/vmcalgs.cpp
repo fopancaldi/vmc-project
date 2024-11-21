@@ -1,7 +1,18 @@
+//!
+//! @file vmcalgs.cpp
+//! @brief Definition of the non-templated helper functions for the VMC algorithms
+//! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
+//! @see vmcalgs.hpp
+//! @see vmcalgs.inl
+//!
+
 #include "vmcalgs.inl"
 
 namespace vmcp {
 
+//! @brief Calculates the average and its variance
+//! @param v The energies to be averaged
+//! @return The average and its variance
 VMCResult AvgAndVar_(std::vector<Energy> const &v) {
     assert(v.size() > 1);
     auto const size = std::ssize(v);

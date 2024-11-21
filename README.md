@@ -35,7 +35,10 @@ Simply use
 doxygen
 ```
 then open `html/index.html` in a browser.
-Do NOT generate a Doxygen configuration file.
+There are warnings since some functions (for example, `operator+=` for `Coordinate`) are not documented.
+This is by choice, since those are so intuitive that documenting them would just clutter both the code and the html page.
+
+Do **not** generate a Doxygen configuration file.
 
 # General remarks
 

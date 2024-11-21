@@ -1,14 +1,15 @@
 //!
 //! @file types.hpp
 //! @brief Type definition header
-//! @author Lorenzo Fabbri
-//! @author Francesco Orso Pancaldi
+//! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
 //!
 //! Definitions of the types used in the program.
 //! Some of them are simple wrapper structs, and are used to ensure that the arithmetic operations have
 //! physical sense.
 //! For example, the code forbids adding up an object of type 'Mass' with one of type 'Energy'.
 //!
+
+// TODO: average -> mean
 
 #ifndef VMCPROJECT_TYPES_HPP
 #define VMCPROJECT_TYPES_HPP
@@ -23,8 +24,10 @@
 
 namespace vmcp {
 
-//! @defgroup Structure types
-//! Give a consistent structure to the program and are used to define the other ones.
+//! @defgroup struct-types Structure types
+//! @brief Type aliases, used to define the other types
+//!
+//! These types give a consistent structure to the program and are used to define the other ones.
 //! @{
 
 //! @brief Floating point type
@@ -58,10 +61,11 @@ using RandomGenerator = std::mt19937;
 
 //! @}
 
-//! @defgroup Lexicon types
-//! FIXME: What the heck is this descrptiion?
-//! Give meaning to the structure types by using names that clarify their properties.
-//! Also include wrapper structs.
+//! @defgroup lexic-types Lexicon types
+//! @brief Types that have a clear physical meaning
+//!
+//! Types that have a clear physical meaning.
+//! Also includes wrapper structs.
 //! @{
 
 //! @brief Number of space dimensions
@@ -76,11 +80,27 @@ using VarParNum = UIntType;
 //! @brief Position of one particle in one dimension
 struct Coordinate {
     FPType val;
-    Coordinate &operator+=(Coordinate);
-    Coordinate &operator-=(Coordinate);
-    Coordinate &operator*=(FPType);
-    Coordinate &operator/=(FPType);
+    Coordinate &operator+=(Coordinate other) {
+        val += other.val;
+        return *this;
+    }
+    Coordinate &operator-=(Coordinate other) {
+        val -= other.val;
+        return *this;
+    }
+    Coordinate &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    Coordinate &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
+inline Coordinate operator+(Coordinate lhs, Coordinate rhs) { return lhs += rhs; }
+inline Coordinate operator-(Coordinate lhs, Coordinate rhs) { return lhs -= rhs; }
+inline Coordinate operator*(Coordinate lhs, FPType rhs) { return lhs *= rhs; }
+inline Coordinate operator/(Coordinate lhs, FPType rhs) { return lhs /= rhs; }
 
 //! @brief Position of one particle in D dimensions
 template <Dimension D>
@@ -93,11 +113,28 @@ using Positions = std::array<Position<D>, N>;
 //! @brief Variational parameter
 struct VarParam {
     FPType val;
-    VarParam &operator+=(VarParam);
-    VarParam &operator-=(VarParam);
-    VarParam &operator*=(FPType);
-    VarParam &operator/=(FPType);
+    VarParam &operator+=(VarParam other) {
+        val += other.val;
+        return *this;
+    }
+    VarParam &operator-=(VarParam other) {
+        val -= other.val;
+        return *this;
+    }
+    VarParam &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    VarParam &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
+inline VarParam operator+(VarParam lhs, VarParam rhs) { return lhs += rhs; }
+inline VarParam operator-(VarParam lhs, VarParam rhs) { return lhs -= rhs; }
+inline VarParam operator*(VarParam lhs, FPType rhs) { return lhs *= rhs; }
+inline VarParam operator*(FPType lhs, VarParam rhs) { return rhs * lhs; }
+inline VarParam operator/(VarParam lhs, FPType rhs) { return lhs /= rhs; }
 
 //! @brief Set of V variational parameters
 template <VarParNum V>
@@ -106,11 +143,28 @@ using VarParams = std::array<VarParam, V>;
 //! @brief Mass of one particle
 struct Mass {
     FPType val;
-    Mass &operator+=(Mass);
-    Mass &operator-=(Mass);
-    Mass &operator*=(FPType);
-    Mass &operator/=(FPType);
+    Mass &operator+=(Mass other) {
+        val += other.val;
+        return *this;
+    }
+    Mass &operator-=(Mass other) {
+        val -= other.val;
+        return *this;
+    }
+    Mass &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    Mass &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
+inline Mass operator+(Mass lhs, Mass rhs) { return lhs += rhs; }
+inline Mass operator-(Mass lhs, Mass rhs) { return lhs -= rhs; }
+inline Mass operator*(Mass lhs, FPType rhs) { return lhs *= rhs; }
+inline Mass operator*(FPType lhs, Mass rhs) { return rhs * lhs; }
+inline Mass operator/(Mass lhs, FPType rhs) { return lhs /= rhs; }
 
 //! @brief Masses on N particles
 template <ParticNum N>
@@ -120,6 +174,7 @@ using Masses = std::array<Mass, N>;
 struct Energy {
     FPType val;
 };
+inline bool operator<(Energy lhs, Energy rhs) { return lhs.val < rhs.val; }
 
 //! @brief Variance on the average of the energies
 //!
@@ -129,7 +184,7 @@ struct EnVariance {
     FPType val;
 };
 
-//! @brief Average of the energy with error
+//! @brief Average of the energy and its error
 struct VMCResult {
     Energy energy;
     EnVariance variance;
@@ -163,24 +218,37 @@ using ParamBounds = std::array<Bound<VarParam>, V>;
 
 //! @}
 
-//! @defgroup Function properties
+//! @defgroup func-properties Function properties
+//! @brief Functions that check the signature of a function
+//!
 //! Functions used to guarantee properties (for now, just the signature) of the functions passed to the VMC
 //! algorithms.
 //! @{
 
 //! @brief Checks the signature of the function
+//! @return Whether the function has the correct signature
+//!
+//! Checks if Function takes the positions of N particles in D dimension and V variational parameters, and
+//! returns a real number.
 template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunction() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }
 
 //! @brief Checks the signature of the function
+//! @return Whether the function has the correct signature
+//!
+//! Checks if Function takes the positions of N particles in D dimension and V variational
+//! parameters, and returns a real number.
 template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunctionDerivative() {
     return IsWavefunction<D, N, V, Function>();
 }
 
 //! @brief Checks the signature of the function
+//! @return Whether the function has the correct signature
+//!
+//! Checks if Function takes the positions of N particles in D dimension, and returns a real number.
 template <Dimension D, ParticNum N, class Function>
 constexpr bool IsPotential() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &>;
@@ -188,7 +256,7 @@ constexpr bool IsPotential() {
 
 //! @}
 
-//! @addtogroup Lexicon types
+//! @addtogroup lexic-types
 //! @{
 
 //! @brief Gradient for one particle in D dimensions
@@ -206,9 +274,5 @@ using Laplacians = std::array<Laplacian, N>;
 //! @}
 
 } // namespace vmcp
-
-// Some implementations are in this file
-// It is separated to improve readability
-#include "types.inl"
 
 #endif

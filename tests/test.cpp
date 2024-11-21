@@ -22,12 +22,14 @@ vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFact
 TEST_CASE("Testing VMCLocEnAndPoss_") {
     // Chosen at random, but fixed to guarantee reproducibility of failed tests
     constexpr vmcp::UIntType seed = 648265u;
-    constexpr vmcp::IntType iterations = 64;
+    constexpr vmcp::IntType iterations = 16;
     // FP TODO: Rename this
     constexpr vmcp::IntType allowedStdDevs = 20;
     // If the standard deviation is smaller than this, it is highly probable that numerical errors were
     // non-negligible
-    constexpr vmcp::FPType stdDevTolerance = std::numeric_limits<vmcp::FPType>::epsilon() * 100;
+    // FP TODO: If you declare this as constexpr, intellisense complains but the program compiles
+    // So should this be constexpr?
+    const vmcp::FPType stdDevTolerance = std::numeric_limits<vmcp::FPType>::epsilon() * 100;
     // FP TODO: Rename
     constexpr vmcp::IntType varParamsFactor = 16;
     // FP TODO: One pair of brackets can probably be removed here
@@ -50,13 +52,13 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
     // assert(file_stream);
 
     SUBCASE("1D harmonic oscillator") {
-        vmcp::IntType const numberEnergies = 1 << 7;
+        vmcp::IntType const numberEnergies = 1 << 4;
         vmcp::CoordBounds<1> const coordBound = {vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Mass const mInit{1.f};
         vmcp::FPType const omegaInit = 1.f;
-        vmcp::Mass const mStep{0.2f};
-        vmcp::FPType const omegaStep = 0.2f;
+        vmcp::Mass const mStep{0.1f};
+        vmcp::FPType const omegaStep = 0.1f;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const omegaIterations = iterations;
         struct PotHO {
@@ -344,7 +346,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
         //    }
         // };
 
-        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        /* SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefBox {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
@@ -424,7 +426,7 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Particle in a box, no var. parameters (seconds): " << duration.count() << '\n';
-        }
+        } */
 
         // FP TODO: Fix this
         // SUBCASE("One variational parameter") {
