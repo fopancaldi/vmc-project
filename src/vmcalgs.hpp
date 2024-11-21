@@ -1,4 +1,13 @@
-// Variational Monte Carlo algorithm definitions
+//!
+//! @file vmcalgs.hpp
+//! @brief Declaration of the VMC algorithms
+//! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
+//!
+//! Contains the declarations of the VMC algorithms that are meant to be called by the user.
+//! Does NOT contain the descritpions of said algorithms.
+//! To improve readability, the implementation of the templated functions is in the .inl file.
+//! @see vmcalgs.inl
+//!
 
 #ifndef VMCPROJECT_VMCALGS_HPP
 #define VMCPROJECT_VMCALGS_HPP
@@ -9,53 +18,39 @@
 
 namespace vmcp {
 
-// Computes energies and positions by using the VMC algorithm with the analytical formula for the derivative
-// and the Metropolis algorithm
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
-std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>,
-                                                Laplacians<N, Laplacian> const &, Mass, Potential const &,
-                                                CoordBounds<D>, IntType, RandomGenerator &);
+std::vector<LocEnAndPoss<D, N>>
+VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, Laplacians<N, Laplacian> const &, Masses<N>,
+                Potential const &, CoordBounds<D>, IntType, RandomGenerator &);
 
-// Computes energy and variance by using the VMC algorithm with the analytical formula for the derivative and
-// the Metropolis algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Mass,
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Masses<N>,
                     Potential const &, CoordBounds<D>, IntType, RandomGenerator &);
 
-// Computes energies and positions by using the VMC algorithm with the analytical formula for the derivative
-// and the importance sampling algorithm
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
-std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>,
-                                                Gradients<D, N, FirstDerivative> const &,
-                                                Laplacians<N, Laplacian> const &, Mass, Potential const &,
-                                                CoordBounds<D>, IntType, RandomGenerator &);
+std::vector<LocEnAndPoss<D, N>>
+VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, Gradients<D, N, FirstDerivative> const &,
+                Laplacians<N, Laplacian> const &, Masses<N>, Potential const &, CoordBounds<D>, IntType,
+                RandomGenerator &);
 
-// Computes energy and variance by using the VMC algorithm with the analytical formula for the derivative and
-// the importance sampling algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
 VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Gradients<D, N, FirstDerivative> const &,
-                    Laplacians<N, Laplacian> const &, Mass, Potential const &, CoordBounds<D>, IntType,
+                    Laplacians<N, Laplacian> const &, Masses<N>, Potential const &, CoordBounds<D>, IntType,
                     RandomGenerator &);
 
-// Computes energies and positions by using the VMC algorithm with a numerical estimation of the derivative
-// and either the Metropolis or the importance sampling algorithm
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, bool, FPType, Mass,
+std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, bool, FPType, Masses<N>,
                                                 Potential const &, CoordBounds<D>, IntType,
                                                 RandomGenerator &);
 
-// Computes energy and variance using the VMC algorithm with with a numerical estimation of the derivative
-// and the either the Metropolis or the importance sampling algorithm, after finding the best parameters
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Mass, Potential const &,
+VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masses<N>, Potential const &,
                     CoordBounds<D>, IntType, RandomGenerator &);
 
 } // namespace vmcp
 
-// Implementation of templates is in this file
-// It is separated to improve readability
 #include "vmcalgs.inl"
 
 #endif

@@ -1,4 +1,15 @@
-// Type definitions and constants
+//!
+//! @file types.hpp
+//! @brief Type definition header
+//! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
+//!
+//! Definitions of the types used in the program.
+//! Some of them are simple wrapper structs, and are used to ensure that the arithmetic operations have
+//! physical sense.
+//! For example, the code forbids adding up an object of type 'Mass' with one of type 'Energy'.
+//!
+
+// TODO: average -> mean
 
 #ifndef VMCPROJECT_TYPES_HPP
 #define VMCPROJECT_TYPES_HPP
@@ -13,75 +24,182 @@
 
 namespace vmcp {
 
-// 'Structure' types
-//
-// Floating point type, can be adjusted to improve precision or compilation time
-// 'long double' cannot be used here, see
-// https://stackoverflow.com/questions/60559650/why-does-stdatomiclong-double-block-indefinitely-in-c14
+//! @defgroup struct-types Structure types
+//! @brief Type aliases, used to define the other types
+//!
+//! These types give a consistent structure to the program and are used to define the other ones.
+//! @{
+
+//! @brief Floating point type
+//!
+//! Can be adjusted to improve either precision or execution time.
+//! Only C++ floating point types are allowed
+//! 'long double' cannot be used due to a bug in the C++ 'atomic' library.
+//! See https://stackoverflow.com/questions/60559650/why-does-stdatomiclong-double-block-indefinitely-in-c14
 using FPType = double;
-// Unsigned integer type
-// Only to be used for arrays, sizes etc.
-// When it necessary to count something, use signed integers
-using UIntType = long unsigned int;
-// Signed integer type
+static_assert(std::is_floating_point_v<FPType>);
+
+//! @brief Signed integer type
+//!
+//! The type to use when an integer is needed, even if that integer is guaranteed to be non-negative.
 using IntType = int;
-// Used instead of default_random_engine since that one is implementation-defined
+static_assert(std::is_integral_v<IntType>);
+static_assert(std::is_signed_v<IntType>);
+
+//! @brief Unsigned integer type
+//!
+//! Should be used instead of IntType only when unsigned integers are explicitly required (for example, in a
+//! std::array).
+using UIntType = long unsigned int;
+static_assert(std::is_integral_v<UIntType>);
+static_assert(std::is_unsigned_v<UIntType>);
+
+//! @brief Random generator type
+//!
+//! Used instead of default_random_engine since that one is implementation-defined.
 using RandomGenerator = std::mt19937;
 
-// 'Program lexicon' types
-//
-// Dimension of the problem, usually it is 1, 2, 3
+//! @}
+
+//! @defgroup lexic-types Lexicon types
+//! @brief Types that have a clear physical meaning
+//!
+//! Types that have a clear physical meaning.
+//! Also includes wrapper structs.
+//! @{
+
+//! @brief Number of space dimensions
 using Dimension = UIntType;
-// Number of particles
+
+//! @brief Number of particles
 using ParticNum = UIntType;
-// Number of variational parameters
+
+//! @brief Number of variational parameters
 using VarParNum = UIntType;
 
-// 'Wrapper' structs (so that it is impossible to add two objects of different types)
-//
-// Position of the particles (in D dimensions)
+//! @brief Position of one particle in one dimension
 struct Coordinate {
     FPType val;
-    Coordinate &operator+=(Coordinate);
-    Coordinate &operator-=(Coordinate);
-    Coordinate &operator*=(FPType);
-    Coordinate &operator/=(FPType);
+    Coordinate &operator+=(Coordinate other) {
+        val += other.val;
+        return *this;
+    }
+    Coordinate &operator-=(Coordinate other) {
+        val -= other.val;
+        return *this;
+    }
+    Coordinate &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    Coordinate &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
+inline Coordinate operator+(Coordinate lhs, Coordinate rhs) { return lhs += rhs; }
+inline Coordinate operator-(Coordinate lhs, Coordinate rhs) { return lhs -= rhs; }
+inline Coordinate operator*(Coordinate lhs, FPType rhs) { return lhs *= rhs; }
+inline Coordinate operator/(Coordinate lhs, FPType rhs) { return lhs /= rhs; }
+
+//! @brief Position of one particle in D dimensions
 template <Dimension D>
 using Position = std::array<Coordinate, D>;
+
+//! @brief Position of N particles in D dimensions
 template <Dimension D, ParticNum N>
 using Positions = std::array<Position<D>, N>;
-// Variational parameters
+
+//! @brief Variational parameter
 struct VarParam {
     FPType val;
-    VarParam &operator+=(VarParam);
-    VarParam &operator-=(VarParam);
-    VarParam &operator*=(FPType);
-    VarParam &operator/=(FPType);
+    VarParam &operator+=(VarParam other) {
+        val += other.val;
+        return *this;
+    }
+    VarParam &operator-=(VarParam other) {
+        val -= other.val;
+        return *this;
+    }
+    VarParam &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    VarParam &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
+inline VarParam operator+(VarParam lhs, VarParam rhs) { return lhs += rhs; }
+inline VarParam operator-(VarParam lhs, VarParam rhs) { return lhs -= rhs; }
+inline VarParam operator*(VarParam lhs, FPType rhs) { return lhs *= rhs; }
+inline VarParam operator*(FPType lhs, VarParam rhs) { return rhs * lhs; }
+inline VarParam operator/(VarParam lhs, FPType rhs) { return lhs /= rhs; }
+
+//! @brief Set of V variational parameters
 template <VarParNum V>
 using VarParams = std::array<VarParam, V>;
-// Mass
+
+//! @brief Mass of one particle
 struct Mass {
     FPType val;
+    Mass &operator+=(Mass other) {
+        val += other.val;
+        return *this;
+    }
+    Mass &operator-=(Mass other) {
+        val -= other.val;
+        return *this;
+    }
+    Mass &operator*=(FPType other) {
+        val *= other;
+        return *this;
+    }
+    Mass &operator/=(FPType other) {
+        val /= other;
+        return *this;
+    }
 };
-// Variational Monte Carlo algorithm result
+inline Mass operator+(Mass lhs, Mass rhs) { return lhs += rhs; }
+inline Mass operator-(Mass lhs, Mass rhs) { return lhs -= rhs; }
+inline Mass operator*(Mass lhs, FPType rhs) { return lhs *= rhs; }
+inline Mass operator*(FPType lhs, Mass rhs) { return rhs * lhs; }
+inline Mass operator/(Mass lhs, FPType rhs) { return lhs /= rhs; }
+
+//! @brief Masses on N particles
+template <ParticNum N>
+using Masses = std::array<Mass, N>;
+
+//! @brief Energy of the system
 struct Energy {
     FPType val;
 };
+inline bool operator<(Energy lhs, Energy rhs) { return lhs.val < rhs.val; }
+
+//! @brief Variance on the average of the energies
+//!
+//! Not to be confused with the variance on the energy.
+//! Has 'units of measurement' Energy^2
 struct EnVariance {
     FPType val;
 };
+
+//! @brief Average of the energy and its error
 struct VMCResult {
     Energy energy;
     EnVariance variance;
 };
+
+//! @brief Local energy and the positions of the particles when it was computed
 template <Dimension D, ParticNum N>
 struct LocEnAndPoss {
-    Energy energy;
+    Energy localEn;
     Positions<D, N> positions;
 };
-// One-dimensional interval
+
+//! @brief One-dimensional interval
+//!
+//! Requires the templated type to be a class with public member 'val'.
 template <typename T>
 struct Bound {
     T lower;
@@ -89,36 +207,72 @@ struct Bound {
     Bound(T lower_, T upper_) : lower{lower_}, upper{upper_} { assert(upper.val >= lower.val); }
     T Length() const { return upper - lower; }
 };
+
+//! @brief D-dimensional coordinate interval
 template <Dimension D>
 using CoordBounds = std::array<Bound<Coordinate>, D>;
+
+//! @brief Intervals for V variational parameters
 template <VarParNum V>
 using ParamBounds = std::array<Bound<VarParam>, V>;
 
-// Derivatives
-template <Dimension D, class FirstDerivative>
-using Gradient = std::array<FirstDerivative, D>;
-template <Dimension D, ParticNum N, class FirstDerivative>
-using Gradients = std::array<Gradient<D, FirstDerivative>, N>;
-template <ParticNum N, class Laplacian>
-using Laplacians = std::array<Laplacian, N>;
-// To (only) be used in a static assertion
+//! @}
+
+//! @defgroup func-properties Function properties
+//! @brief Functions that check the signature of a function
+//!
+//! Functions used to guarantee properties (for now, just the signature) of the functions passed to the VMC
+//! algorithms.
+//! @{
+
+//! @brief Checks the signature of the function
+//! @return Whether the function has the correct signature
+//!
+//! Checks if Function takes the positions of N particles in D dimension and V variational parameters, and
+//! returns a real number.
 template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunction() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &, VarParams<V>>;
 }
+
+//! @brief Checks the signature of the function
+//! @return Whether the function has the correct signature
+//!
+//! Checks if Function takes the positions of N particles in D dimension and V variational
+//! parameters, and returns a real number.
 template <Dimension D, ParticNum N, VarParNum V, class Function>
 constexpr bool IsWavefunctionDerivative() {
     return IsWavefunction<D, N, V, Function>();
 }
+
+//! @brief Checks the signature of the function
+//! @return Whether the function has the correct signature
+//!
+//! Checks if Function takes the positions of N particles in D dimension, and returns a real number.
 template <Dimension D, ParticNum N, class Function>
 constexpr bool IsPotential() {
     return std::is_invocable_r_v<FPType, Function, Positions<D, N> const &>;
 }
 
-} // namespace vmcp
+//! @}
 
-// Some implementations are in this file
-// It is separated to improve readability
-#include "types.inl"
+//! @addtogroup lexic-types
+//! @{
+
+//! @brief Gradient for one particle in D dimensions
+template <Dimension D, class FirstDerivative>
+using Gradient = std::array<FirstDerivative, D>;
+
+//! @brief Gradients for N particles in D dimensions
+template <Dimension D, ParticNum N, class FirstDerivative>
+using Gradients = std::array<Gradient<D, FirstDerivative>, N>;
+
+//! @brief Laplacians for N particles
+template <ParticNum N, class Laplacian>
+using Laplacians = std::array<Laplacian, N>;
+
+//! @}
+
+} // namespace vmcp
 
 #endif
