@@ -636,3 +636,32 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
     //    }
     //}
 }
+
+TEST_CASE("Testing Statistics") {
+    // Chosen at random, but fixed to guarantee reproducibility of failed tests
+    constexpr vmcp::UIntType seed = 648265u;
+    constexpr vmcp::FPType statisticsTolerance = 0.05;
+
+    SUBCASE("Testing BlockingAnalysis_") {
+        std::vector<vmcp::LocEnAndPoss<1, 1>> testEnergies = {
+            {vmcp::Energy{1.}, 0.}, {vmcp::Energy{2.}, 0.}, {vmcp::Energy{3.}, 0.}, {vmcp::Energy{4.}, 0.}};
+        vmcp::BlockingResult blockingResults = BlockingAnalysis(testEnergies);
+        CHECK(blockingResults.means[0].val == 2.5);
+        CHECK(blockingResults.means[1].val == 2.5);
+        CHECK(std::abs(blockingResults.stdDevs[0].val - std::sqrt(1.25 / 3.)) < statisticsTolerance);
+        CHECK(blockingResults.stdDevs[1].val - std::sqrt(2.5) < statisticsTolerance);
+    }
+
+    SUBCASE("Testing BootstrappingAnalysis") {
+        vmcp::IntType const numSamples = 10000;
+        vmcp::RandomGenerator rndGen{seed};
+        std::vector<vmcp::LocEnAndPoss<1, 1>> testEnergies = {{vmcp::Energy{1.}, 0.},
+                                                              {vmcp::Energy{2.}, 0.},
+                                                              {vmcp::Energy{3.}, 0.},
+                                                              {vmcp::Energy{4.}, 0.},
+                                                              {vmcp::Energy{5.}, 0.}};
+        vmcp::VMCResult bootstrapResults = BootstrapAnalysis(testEnergies, numSamples, rndGen);
+        CHECK(std::abs(bootstrapResults.energy.val - 3.f) < statisticsTolerance);
+        CHECK(std::abs(bootstrapResults.stdDev.val - std::sqrt(1 / 2)) < statisticsTolerance);
+    }
+}

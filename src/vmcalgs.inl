@@ -22,6 +22,7 @@
 #ifndef VMCPROJECT_VMCALGS_INL
 #define VMCPROJECT_VMCALGS_INL
 
+#include "statistics.hpp"
 #include "vmcalgs.hpp"
 
 #include <algorithm>
@@ -94,18 +95,9 @@ constexpr FPType deltaT = 0.005f;
 //! @return The mean and its (!= the) standard deviation
 template <Dimension D, ParticNum N>
 VMCResult MeanAndErr_(std::vector<LocEnAndPoss<D, N>> const &v) {
-    assert(v.size() > 1);
-
-    auto const size = std::ssize(v);
-    Energy const mean = std::accumulate(v.begin(), v.end(), Energy{0},
-                                        [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
-                        static_cast<FPType>(size);
-    EnSquared const meanVar = std::accumulate(v.begin(), v.end(), EnSquared{0},
-                                              [mean](EnSquared es, LocEnAndPoss<D, N> const &leps) {
-                                                  return es + (leps.localEn - mean) * (leps.localEn - mean);
-                                              }) /
-                              static_cast<FPType>(size * (size - 1));
-    return VMCResult{mean, sqrt(meanVar)};
+    Energy const mean = GetMean(v);
+    EnSquared const stdDev = GetStdDev(v);
+    return VMCResult{mean, stdDev};
 }
 
 //! @brief Moves one particle in a cardinal direction
