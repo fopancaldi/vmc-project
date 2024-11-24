@@ -5,7 +5,8 @@
 //!
 //! Contains the declarations of statistical analysis algorithms that are meant to be called by the user.
 //! Does NOT contain the descritpions of said algorithms.
-//! @see statistics.cpp
+//! To improve readability, the implementation of the templated functions is in the .inl file.
+//! @see statistics.inl
 //!
 
 #ifndef VMCPROJECT_STATISTICS_HPP
@@ -15,16 +16,10 @@
 
 namespace vmcp {
 
-// Divides dataset into multiple blocks with fixed block size, then evaluate means of each block and
-// carries on a statistical analysis of this vectors (one for each block size) of means
-VMCResult BlockingOut(std::vector<Energy> const &energies);
+template <Dimension D, ParticNum N>
+VMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &locEnPos, StatFuncType function);
 
-// Samples dataset with replacement multiple times, then evaluates mean of each sample and
-// carries on a statistical analysis of this vector of means
-VMCResult BootstrapAnalysis(std::vector<Energy> const &energies, IntType const numSamples,
-                            RandomGenerator &gen);
-
-ConfInterval GetConfInt(Energy mean, Energy stdDev);
+ConfInterval GetConfInt(Energy mean, Energy stdDev, FPType percentage);
 
 } // namespace vmcp
 

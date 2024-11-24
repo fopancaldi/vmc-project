@@ -96,7 +96,7 @@ constexpr FPType deltaT = 0.005f;
 template <Dimension D, ParticNum N>
 VMCResult MeanAndErr_(std::vector<LocEnAndPoss<D, N>> const &v) {
     Energy const mean = GetMean(v);
-    EnSquared const stdDev = GetStdDev(v);
+    Energy const stdDev = GetStdDev(v);
     return VMCResult{mean, stdDev};
 }
 

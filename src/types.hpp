@@ -253,7 +253,10 @@ struct ConfInterval {
     Energy max;
 };
 //! @brief Statistical tags
-enum StatisticType { mean, stdDev };
+enum class StatisticType { mean, stdDev };
+
+//! @brief Statistical anlisys fuctions
+enum class StatFuncType { blocking, bootstrap };
 
 //! @}
 
