@@ -24,6 +24,18 @@
 
 namespace vmcp {
 
+//! @defgroup algs-constants Constants
+//! @brief Constants used in the algorithms and/or the helper functions
+//!
+//! Constants used in the algorithms.
+//! They are named with the convention 'constantName_algorithmThatUsesIt'.
+//! @{
+
+//! @brief threshold for determining plateau in standrd deviation of blocking
+Energy constexpr threshold_blockingAnalysis = Energy{0.05};
+
+//! @}
+
 //! @defgroup helpers Helpers
 //! @brief Help the core functions.
 //! @{
@@ -241,13 +253,12 @@ VMCResult BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies) {
 
     BlockingResult blockingResult = EvalBlocking(energies, numEnergies);
 
-    Energy const threshold = blockingResult.means[0] * FPType{0.05f};
-
     // Find the first pair of elements where the difference is below the threshold
-    auto pltIt = std::adjacent_find(blockingResult.stdDevs.begin(), blockingResult.stdDevs.end(),
-                                    [threshold](Energy a, Energy b) {
-                                        return abs(b - a) < threshold; // Condition for plateau
-                                    });
+    auto pltIt =
+        std::adjacent_find(blockingResult.stdDevs.begin(), blockingResult.stdDevs.end(),
+                           [&threshold_blockingAnalysis](Energy a, Energy b) {
+                               return abs(b - a) < threshold_blockingAnalysis; // Condition for plateau
+                           });
     assert(pltIt != blockingResult.stdDevs.end());
     Energy bestStdDev = *pltIt;
 

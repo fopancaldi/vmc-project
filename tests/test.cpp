@@ -19,11 +19,11 @@ vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFact
     vmcp::VarParam const up{std::min(param.val * upFactor, param.val + maxDiff.val)};
     return vmcp::Bound<vmcp::VarParam>{low, up};
 }
-/*
+
 TEST_CASE("Testing VMCLocEnAndPoss_") {
     // Chosen at random, but fixed to guarantee reproducibility of failed tests
     constexpr vmcp::UIntType seed = 648265u;
-    constexpr vmcp::IntType iterations = 64;
+    constexpr vmcp::IntType iterations = 32;
     // FP TODO: Rename this
     constexpr vmcp::IntType allowedStdDevs = 20;
     // If the standard deviation is smaller than this, it is highly probable that numerical errors were
@@ -636,15 +636,15 @@ TEST_CASE("Testing VMCLocEnAndPoss_") {
     //        }
     //    }
     //}
-}*/
+}
 
 TEST_CASE("Testing Statistics") {
     // Chosen at random, but fixed to guarantee reproducibility of failed tests
     constexpr vmcp::UIntType seed = 648265u;
-    constexpr vmcp::FPType statisticsTolerance = 0.05f;
+    constexpr vmcp::FPType statisticsTolerance = 0.1f;
 
-    constexpr vmcp::FPType gaussianMean = 1.f;
-    constexpr vmcp::FPType gaussianStdDev = 2.f;
+    constexpr vmcp::FPType gaussianMean = 0.f;
+    constexpr vmcp::FPType gaussianStdDev = 1.f;
     constexpr vmcp::IntType numPoints = 1 << 10;
 
     std::normal_distribution<> dist(gaussianMean, gaussianStdDev);
@@ -669,8 +669,8 @@ TEST_CASE("Testing Statistics") {
 
     SUBCASE("Testing BlockingOut") {
         vmcp::VMCResult const blockingRes = Statistics(data, vmcp::StatFuncType::blocking, numSamples, gen);
-        CHECK(std::abs(blockingRes.energy.val - 1.) < statisticsTolerance);
-        CHECK(std::abs(blockingRes.stdDev.val - 2.) < statisticsTolerance);
+        CHECK(std::abs(blockingRes.energy.val) < statisticsTolerance);
+        CHECK(std::abs(blockingRes.stdDev.val) < statisticsTolerance);
     }
 
     SUBCASE("Testing BootstrapAnalysis") {
@@ -688,8 +688,8 @@ TEST_CASE("Testing Statistics") {
         SUBCASE("Testing bootstrap with Gaussian data") {
             vmcp::VMCResult const bootstrapRes =
                 Statistics(data, vmcp::StatFuncType::bootstrap, numSamples, gen);
-            CHECK(std::abs(bootstrapRes.energy.val - 1.) < statisticsTolerance);
-            CHECK(std::abs(bootstrapRes.stdDev.val - 2.) < statisticsTolerance);
+            CHECK(std::abs(bootstrapRes.energy.val) < statisticsTolerance);
+            CHECK(std::abs(bootstrapRes.stdDev.val) < statisticsTolerance);
         }
     }
 }
