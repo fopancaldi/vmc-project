@@ -22,12 +22,14 @@
 #ifndef VMCPROJECT_VMCALGS_INL
 #define VMCPROJECT_VMCALGS_INL
 
+#include "statistics.hpp"
 #include "vmcalgs.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <execution>
 #include <functional>
+#include <limits>
 #include <mutex>
 #include <numeric>
 #include <ranges>
@@ -94,18 +96,9 @@ constexpr FPType deltaT = 0.005f;
 //! @return The mean and its (!= the) standard deviation
 template <Dimension D, ParticNum N>
 VMCResult MeanAndErr_(std::vector<LocEnAndPoss<D, N>> const &v) {
-    assert(v.size() > 1);
-
-    auto const size = std::ssize(v);
-    Energy const mean = std::accumulate(v.begin(), v.end(), Energy{0},
-                                        [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
-                        static_cast<FPType>(size);
-    EnSquared const meanVar = std::accumulate(v.begin(), v.end(), EnSquared{0},
-                                              [mean](EnSquared es, LocEnAndPoss<D, N> const &leps) {
-                                                  return es + (leps.localEn - mean) * (leps.localEn - mean);
-                                              }) /
-                              static_cast<FPType>(size * (size - 1));
-    return VMCResult{mean, sqrt(meanVar)};
+    Energy const mean = Mean(v);
+    Energy const stdDev = StdDev(v);
+    return VMCResult{mean, stdDev};
 }
 
 //! @brief Moves one particle in a cardinal direction
@@ -646,7 +639,7 @@ VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
 
 //! @}
 
-//! @defgroup vmcleps-wrappers User functions
+//! @defgroup user-functions User functions
 //! @brief The functions that are meant to be called by the user
 //!
 //! Are wrappers for the core functions.

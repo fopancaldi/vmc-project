@@ -242,6 +242,24 @@ using CoordBounds = std::array<Bound<Coordinate>, D>;
 //! @brief Intervals for V variational parameters
 template <VarParNum V>
 using ParamBounds = std::array<Bound<VarParam>, V>;
+// LF TODO: Would rather have BlockingResult as a vector of structs, where each struct contains one size, one
+// mean, one stdDev
+//! @brief Statistical analysis results
+struct BlockingResult {
+    std::vector<IntType> sizes;
+    std::vector<Energy> means;
+    std::vector<Energy> stdDevs;
+};
+struct ConfInterval {
+    Energy min;
+    Energy max;
+};
+//! @brief Statistical tags
+enum class Statistic { mean, stdDev };
+// LF TODO: No 'regular' mean and stdDev?
+// LF TODO: Add it and put assert(false) in the default switch case
+//! @brief Statistical analysis fuctions
+enum class StatFuncType { blocking, bootstrap };
 
 //! @}
 
