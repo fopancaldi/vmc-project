@@ -14,9 +14,11 @@
 
 #include "statistics.hpp"
 
+// LF TODO: Dou you need all these headers?
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <numeric>
 #include <ranges>
 #include <vector>
@@ -31,7 +33,7 @@ namespace vmcp {
 //! @{
 
 //! @brief threshold for determining plateau in standrd deviation of blocking
-Energy constexpr threshold_blockingAnalysis = Energy{0.05f};
+constexpr Energy threshold_blockingAnalysis{0.05f};
 
 //! @}
 
@@ -45,7 +47,7 @@ Energy constexpr threshold_blockingAnalysis = Energy{0.05f};
 //!
 //! Helper for 'GetStat'
 template <Dimension D, ParticNum N>
-Energy GetMean(std::vector<LocEnAndPoss<D, N>> const &v) {
+Energy Mean(std::vector<LocEnAndPoss<D, N>> const &v) {
     assert(v.size() > 1);
     auto const size = std::ssize(v);
 
@@ -61,11 +63,11 @@ Energy GetMean(std::vector<LocEnAndPoss<D, N>> const &v) {
 //!
 //! Helper for 'GetStat'
 template <Dimension D, ParticNum N>
-Energy GetStdDev(std::vector<LocEnAndPoss<D, N>> const &v) {
+Energy StdDev(std::vector<LocEnAndPoss<D, N>> const &v) {
     assert(v.size() > 1);
     auto const size = std::ssize(v);
 
-    Energy const mean = GetMean(v);
+    Energy const mean = Mean(v);
     EnSquared const meanVar = std::accumulate(v.begin(), v.end(), EnSquared{0},
                                               [mean](EnSquared es, LocEnAndPoss<D, N> const &leps) {
                                                   return es + (leps.localEn - mean) * (leps.localEn - mean);
@@ -80,70 +82,82 @@ Energy GetStdDev(std::vector<LocEnAndPoss<D, N>> const &v) {
 //! @param stat The desired statistic (mean or standard deviation)
 //! @return The evaluation of the desired statistic
 template <Dimension D, ParticNum N>
-Energy GetStat(std::vector<LocEnAndPoss<D, N>> const &v, StatisticType stat) {
+Energy GetStat(std::vector<LocEnAndPoss<D, N>> const &v, Statistic stat) {
+    Energy result;
     switch (stat) {
-    case StatisticType::mean:
-        return GetMean(v);
-    case StatisticType::stdDev:
-        return GetStdDev(v);
+    case Statistic::mean:
+        result = Mean(v);
+        break;
+    case Statistic::stdDev:
+        result = StdDev(v);
+        break;
     default:
         assert(false);
     }
+    return result;
 }
 
+// LF TODO: Not a fan of the name
+// LF TODO: Also, 'blocks-vectors' are unclear to someone who reads for the first time
 //! @brief Fills blocks-vectors with desired statistic
 //! @param energies The energies and positions, where only the energies will be used
 //! @param numEnergies The number of energies
-//! @see BlockingAnalysis
-//!
 //! @param blockSize size of the blocks for which the desired statistic is evaluated
-//! @param numOfBlocks number of blocks with size blockSize
+//! @param numBlocks number of blocks with size blockSize
 //! @param stat statistic that will be evaluated for each block
+//! @see BlockingAnalysis
 //! @return A vector of energies (and positions) contaning the statistic for each block
 //!
 //! Helper for 'BlockingAnalysis'
 template <Dimension D, ParticNum N>
 std::vector<LocEnAndPoss<D, N>> EvalStatBlocks(std::vector<LocEnAndPoss<D, N>> const &energies,
-                                               IntType numEnergies, IntType blockSize, IntType numOfBlocks,
-                                               StatisticType stat) {
+                                               IntType numEnergies, IntType blockSize, IntType numBlocks,
+                                               Statistic stat) {
+    assert(numBlocks > 0);
+    assert((numEnergies % blockSize) == 0);
+
     std::vector<LocEnAndPoss<D, N>> blockStats;
-    blockStats.reserve(static_cast<UIntType>(numOfBlocks));
-    assert(numEnergies % blockSize == 0);
+    blockStats.reserve(static_cast<long unsigned int>(numBlocks));
 
-    IntType currentBlock = 0;
-
-    std::generate_n(std::back_inserter(blockStats), numOfBlocks,
-                    [&energies, &numEnergies, &blockSize, &currentBlock, &stat]() {
+    std::generate_n(std::back_inserter(blockStats), numBlocks,
+                    [&energies, &numEnergies, &blockSize, &stat, currentBlock = IntType{0}]() mutable {
                         auto start = energies.begin() + currentBlock * blockSize;
                         auto end = start + blockSize;
 
-                        LocEnAndPoss<D, N> blockLeps;
-                        blockLeps.localEn = GetStat(std::vector<LocEnAndPoss<D, N>>(start, end), stat);
+                        LocEnAndPoss<D, N> blockLEPs;
+                        blockLEPs.localEn = GetStat(std::vector<LocEnAndPoss<D, N>>(start, end), stat);
+                        Position<D> fakePosition;
+                        std::fill(fakePosition.begin(), fakePosition.end(),
+                                  Coordinate{std::numeric_limits<FPType>::quiet_NaN()});
+                        std::fill(blockLEPs.positions.begin(), blockLEPs.positions.end(), fakePosition);
 
                         ++currentBlock;
-                        return blockLeps;
+                        return blockLEPs;
                     });
     return blockStats;
 }
 
+// LF TODO: I would rather create uniform_int_distribution inside the function (unless there's a reason)
+// LF TODO: Isn't 'numEnergies' the size of 'energies'? If so, you need not ask for it
 //! @brief Helper function for Bootstrapping
 //! @param energies The energies and positions, where only the energies will be used
 //! @param numEnergies The number of energies
-//! @see BootstrapAnalysis
-//!
 //! @param numSamples The number of samples that will be generated
 //! @param gen The random generator
 //! @param dist The uniform integer distribution used to extract random elements from energies vector
 //! @return A vector of energies (and positions) containing the generated samples
+//! @see BootstrapAnalysis
 //!
 //! Helper function for 'BootstrappingAnalysis'
 template <Dimension D, ParticNum N>
 std::vector<std::vector<LocEnAndPoss<D, N>>>
-GenerateBootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, UIntType const numEnergies,
+BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, UIntType const numEnergies,
                          IntType const numSamples, RandomGenerator &gen,
                          std::uniform_int_distribution<> &dist) {
+    assert(numSamples > 0);
+
     std::vector<std::vector<LocEnAndPoss<D, N>>> bootstrapSamples;
-    bootstrapSamples.reserve(static_cast<UIntType>(numSamples));
+    bootstrapSamples.reserve(static_cast<unsigned long int>(numSamples));
 
     // Resample with replacement
     std::generate_n(std::back_inserter(bootstrapSamples), numSamples,
@@ -152,8 +166,15 @@ GenerateBootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, UIntTy
                         sample.reserve(numEnergies);
 
                         // Fill the current sample with random energies
-                        std::generate_n(std::back_inserter(sample), numEnergies,
-                                        [&]() { return energies[static_cast<UIntType>(dist(gen))]; });
+                        // LF TODO: Can you avoid [&]?
+                        std::generate_n(std::back_inserter(sample), numEnergies, [&]() {
+                            result = energies[static_cast<UIntType>(dist(gen))];
+                            Position<D> fakePosition;
+                            std::fill(fakePosition.begin(), fakePosition.end(),
+                                      Coordinate{std::numeric_limits<FPType>::quiet_NaN()});
+                            std::fill(result.positions.begin(), result.positions.end(), fakePosition);
+                            return result;
+                        });
 
                         return sample;
                     });
@@ -163,29 +184,29 @@ GenerateBootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, UIntTy
 //! @brief Calculates the desired statistic of each sample vector
 //! @param bootstrapSamples The energies and positions, where only the energies will be used
 //! @param numSamples The number of samples that will be generated
-//! @see GenerateBootstrapSamples
-//!
 //! @param stat statistic that will be evaluated for each block
 //! @return A vector of energies (and positions) containing the calculated statistic for each sample
+//! @see BootstrapSamples
 //!
 //! Helper function for 'BootstrappingAnalysis'
 template <Dimension D, ParticNum N>
 std::vector<LocEnAndPoss<D, N>>
-FillBootstrapVec(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSamples, IntType numSamples,
-                 StatisticType stat) {
+BootstrapLEPs(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSamples, IntType numSamples,
+              Statistic stat) {
     std::vector<LocEnAndPoss<D, N>> bootstrapVector;
-    bootstrapVector.reserve(static_cast<UIntType>(numSamples));
-
-    // Track the current position in bootstrapSamples
-    UIntType currentSample = 0;
+    bootstrapVector.reserve(static_cast<long unsigned int>(numSamples));
 
     std::generate_n(std::back_inserter(bootstrapVector), numSamples,
-                    [&bootstrapSamples, &currentSample, &stat]() {
+                    [&bootstrapSamples, &currentSample, &stat, currentSample = UIntType{0u}]() mutable {
                         const auto &sample = bootstrapSamples[currentSample];
                         ++currentSample;
 
                         LocEnAndPoss<D, N> leps;
                         leps.localEn = GetStat(sample, stat);
+                        Position<D> fakePosition;
+                        std::fill(fakePosition.begin(), fakePosition.end(),
+                                  Coordinate{std::numeric_limits<FPType>::quiet_NaN()});
+                        std::fill(leps.positions.begin(), leps.positions.end(), fakePosition);
                         return leps;
                     });
     return bootstrapVector;
@@ -200,7 +221,7 @@ FillBootstrapVec(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSa
 //! @{
 
 //! @brief Core helper method for Blocking, divides dataset into multiple blocks with a certain block size,
-//! then evaluates means of each block and takes the mean of means and standard deviation of means (for 
+//! then evaluates means of each block and takes the mean of means and standard deviation of means (for
 //! each block size)
 //! @param energies The energies and positions, where only the energies will be used
 //! @param numEnergies The number of energies
@@ -209,28 +230,29 @@ FillBootstrapVec(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSa
 //! @return Three vectors containing resepctively a list of block sizes, means and standard deviations
 template <Dimension D, ParticNum N>
 BlockingResult EvalBlocking(std::vector<LocEnAndPoss<D, N>> const &energies, IntType const &numEnergies) {
+    assert(numEnergies > 0);
+
     std::vector<IntType> blockSizes;
     std::vector<Energy> means;
     std::vector<Energy> stdDevs;
 
-    UIntType reservedSize = static_cast<UIntType>(std::log2(numEnergies) - 1);
+    unsigned long int const reservedSize = static_cast<unsigned long int>(std::log2(numEnergies) - 1);
     blockSizes.reserve(reservedSize);
     means.reserve(reservedSize);
     stdDevs.reserve(reservedSize);
 
     for (IntType blockSize = 2; blockSize <= numEnergies / 2; blockSize *= 2) {
-        IntType numOfBlocks = static_cast<IntType>(static_cast<FPType>(numEnergies) / blockSize);
-        // Evaluate mean of each block
-        std::vector<LocEnAndPoss<D, N>> blockMeans =
-            EvalStatBlocks(energies, numEnergies, blockSize, numOfBlocks, StatisticType::mean);
+        IntType numBlocks = static_cast<IntType>(static_cast<FPType>(numEnergies) / blockSize);
 
+        std::vector<LocEnAndPoss<D, N>> blockMeans =
+            EvalStatBlocks(energies, numEnergies, blockSize, numBlocks, Statistic::mean);
         blockSizes.push_back(blockSize);
 
         // Statistics
-        Energy meanOfMeans = GetStat(blockMeans, StatisticType::mean);
+        Energy meanOfMeans = GetStat(blockMeans, Statistic::mean);
         means.push_back(meanOfMeans);
-        Energy stdDev = GetStat(blockMeans, StatisticType::stdDev);
-        stdDevs.push_back(stdDev);
+        Energy stdDevOfMeans = GetStat(blockMeans, Statistic::stdDev);
+        stdDevs.push_back(stdDevOfMeans);
     }
     assert(blockSizes.size() == means.size());
     assert(blockSizes.size() == stdDevs.size());
@@ -246,17 +268,16 @@ BlockingResult EvalBlocking(std::vector<LocEnAndPoss<D, N>> const &energies, Int
 template <Dimension D, ParticNum N>
 VMCResult BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies) {
     IntType const numEnergies = static_cast<IntType>(std::ssize(energies));
-    // Check numEnergies is a power of 2 using bitwise AND between the number n and (n - 1)
+    // Check that numEnergies is a power of 2 using bitwise AND between the number n and (n - 1)
     assert((numEnergies & (numEnergies - 1)) == 0);
     assert(numEnergies > 1);
 
     BlockingResult blockingResult = EvalBlocking(energies, numEnergies);
 
     // Find the first pair of elements where the difference is below the threshold
-    auto pltIt = std::adjacent_find(blockingResult.stdDevs.begin(), blockingResult.stdDevs.end(),
-                                    [threshold = threshold_blockingAnalysis](Energy a, Energy b) {
-                                        return abs(b - a) < threshold; // Condition for plateau
-                                    });
+    auto pltIt =
+        std::adjacent_find(blockingResult.stdDevs.begin(), blockingResult.stdDevs.end(),
+                           [](Energy e1, Energy e2) { return abs(e2 - e1) < threshold_blockingAnalysis; });
     assert(pltIt != blockingResult.stdDevs.end());
     Energy bestStdDev = *pltIt;
 
@@ -281,18 +302,18 @@ VMCResult BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, Int
 
     // Generate sample with replacement
     std::vector<std::vector<LocEnAndPoss<D, N>>> bootstrapSamples =
-        GenerateBootstrapSamples(energies, static_cast<UIntType>(numEnergies), numSamples, gen, dist);
+        BootstrapSamples(energies, numEnergies, numSamples, gen, dist);
 
     // Calculate mean of each sample vector and place into bootstrapMeans
     std::vector<LocEnAndPoss<D, N>> bootstrapMeans =
-        FillBootstrapVec(bootstrapSamples, numSamples, StatisticType::mean);
+        BootstrapLEPs(bootstrapSamples, numSamples, Statistic::mean);
     // Calculate mean of each sample vector and place into bootstrapStdDevs
     std::vector<LocEnAndPoss<D, N>> bootstrapStdDevs =
-        FillBootstrapVec(bootstrapSamples, numSamples, StatisticType::stdDev);
+        BootstrapLEPs(bootstrapSamples, numSamples, Statistic::stdDev);
 
     // Calculate statistics of each means
-    Energy meanOfMeans = GetStat(bootstrapMeans, StatisticType::mean);
-    Energy stdDev = GetStat(bootstrapStdDevs, StatisticType::mean);
+    Energy meanOfMeans = GetStat(bootstrapMeans, Statistic::mean);
+    Energy stdDev = GetStat(bootstrapStdDevs, Statistic::mean);
     return VMCResult{meanOfMeans, stdDev};
 }
 
@@ -314,15 +335,12 @@ template <Dimension D, ParticNum N>
 VMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &energies, StatFuncType function,
                      IntType const &numSamples, RandomGenerator &gen) {
     switch (function) {
-    // Statistical analysis with Blocking
     case StatFuncType::blocking:
         return BlockingAnalysis(energies);
-
-    // Statistical analysis with Bootstrapping
+        break;
     case StatFuncType::bootstrap:
         return BootstrapAnalysis(energies, numSamples, gen);
-
-    // Basic statistical analysis
+        break;
     default:
         return MeanAndErr_(energies);
     }

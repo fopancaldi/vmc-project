@@ -13,7 +13,7 @@
 
 namespace vmcp {
 
-//! @defgroup statistic User functions
+//! @defgroup user-functions User functions
 //! @brief The functions that are meant to be called by the user
 //!
 //! @{
@@ -29,7 +29,7 @@ ConfInterval GetConfInt(Energy mean, Energy stdDev, FPType confLevel) {
     ConfInterval confInterval;
     boost::math::normal dist(mean.val, stdDev.val);
 
-    FPType probability = 1 - (1 - static_cast<FPType>(confLevel) / 100.0) / 2.0;
+    FPType probability = 1 - (1 - confLevel / 100) / 2;
     FPType z = boost::math::quantile(dist, probability);
 
     confInterval.min = mean - stdDev * z;

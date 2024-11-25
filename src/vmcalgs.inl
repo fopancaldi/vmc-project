@@ -29,6 +29,7 @@
 #include <cmath>
 #include <execution>
 #include <functional>
+#include <limits>
 #include <mutex>
 #include <numeric>
 #include <ranges>
@@ -95,8 +96,8 @@ constexpr FPType deltaT = 0.005f;
 //! @return The mean and its (!= the) standard deviation
 template <Dimension D, ParticNum N>
 VMCResult MeanAndErr_(std::vector<LocEnAndPoss<D, N>> const &v) {
-    Energy const mean = GetMean(v);
-    Energy const stdDev = GetStdDev(v);
+    Energy const mean = Mean(v);
+    Energy const stdDev = StdDev(v);
     return VMCResult{mean, stdDev};
 }
 
@@ -638,7 +639,7 @@ VMCResult VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
 
 //! @}
 
-//! @defgroup vmcleps-wrappers User functions
+//! @defgroup user-functions User functions
 //! @brief The functions that are meant to be called by the user
 //!
 //! Are wrappers for the core functions.

@@ -17,9 +17,10 @@
 namespace vmcp {
 
 template <Dimension D, ParticNum N>
-VMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &locEnPos, StatFuncType function);
+VMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &, StatFuncType, IntType const &,
+                     RandomGenerator &);
 
-ConfInterval GetConfInt(Energy mean, Energy stdDev, FPType percentage);
+ConfInterval GetConfInt(Energy, Energy, FPType);
 
 } // namespace vmcp
 
