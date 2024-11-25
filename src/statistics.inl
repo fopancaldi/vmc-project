@@ -31,7 +31,7 @@ namespace vmcp {
 //! @{
 
 //! @brief threshold for determining plateau in standrd deviation of blocking
-Energy constexpr threshold_blockingAnalysis = Energy{0.05};
+Energy constexpr threshold_blockingAnalysis = Energy{0.05f};
 
 //! @}
 
