@@ -15,7 +15,6 @@
 #include "statistics.hpp"
 
 #include <algorithm>
-#include <boost/math/distributions/normal.hpp>
 #include <cmath>
 #include <fstream>
 #include <numeric>
@@ -254,11 +253,10 @@ VMCResult BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies) {
     BlockingResult blockingResult = EvalBlocking(energies, numEnergies);
 
     // Find the first pair of elements where the difference is below the threshold
-    auto pltIt =
-        std::adjacent_find(blockingResult.stdDevs.begin(), blockingResult.stdDevs.end(),
-                           [&threshold_blockingAnalysis](Energy a, Energy b) {
-                               return abs(b - a) < threshold_blockingAnalysis; // Condition for plateau
-                           });
+    auto pltIt = std::adjacent_find(blockingResult.stdDevs.begin(), blockingResult.stdDevs.end(),
+                                    [threshold = threshold_blockingAnalysis](Energy a, Energy b) {
+                                        return abs(b - a) < threshold; // Condition for plateau
+                                    });
     assert(pltIt != blockingResult.stdDevs.end());
     Energy bestStdDev = *pltIt;
 

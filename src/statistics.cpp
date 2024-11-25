@@ -9,6 +9,8 @@
 
 #include "statistics.hpp"
 
+#include <boost/math/distributions/normal.hpp>
+
 namespace vmcp {
 
 //! @defgroup statistic User functions
@@ -25,7 +27,7 @@ namespace vmcp {
 
 ConfInterval GetConfInt(Energy mean, Energy stdDev, FPType confLevel) {
     ConfInterval confInterval;
-    boost::math::normal_distribution<FPType> dist(mean.val, stdDev.val);
+    boost::math::normal dist(mean.val, stdDev.val);
 
     FPType probability = 1 - (1 - static_cast<FPType>(confLevel) / 100.0) / 2.0;
     FPType z = boost::math::quantile(dist, probability);

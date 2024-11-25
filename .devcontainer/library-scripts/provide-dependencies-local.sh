@@ -9,8 +9,7 @@ apt-get install -y \
     git \
     doxygen \
     graphviz \
-    gdb \
-    libboost-math-dev
+    gdb 
 
 # For generating latex documentation with doxygen, texlive and ghostscript also need to be installed
 # See https://www.doxygen.nl/manual/install.html for more info
