@@ -242,6 +242,21 @@ using CoordBounds = std::array<Bound<Coordinate>, D>;
 //! @brief Intervals for V variational parameters
 template <VarParNum V>
 using ParamBounds = std::array<Bound<VarParam>, V>;
+//! @brief Statistical analysis results
+struct BlockingResult {
+    std::vector<IntType> sizes;
+    std::vector<Energy> means;
+    std::vector<Energy> stdDevs;
+};
+struct ConfInterval {
+    Energy min;
+    Energy max;
+};
+//! @brief Statistical tags
+enum class StatisticType { mean, stdDev };
+
+//! @brief Statistical anlisys fuctions
+enum class StatFuncType { blocking, bootstrap };
 
 //! @}
 
