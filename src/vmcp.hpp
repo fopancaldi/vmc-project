@@ -15,3 +15,7 @@
 #include "vmcalgs.hpp"
 
 #endif
+
+// TODO: Headers need a restructuring
+// TODO: Also the doxygen groups need restructiring
+// TODO: Also the punctuation in the doxygen comments needs to be standardized

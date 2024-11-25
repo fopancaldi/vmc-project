@@ -14,6 +14,8 @@
 
 #include "statistics.hpp"
 
+// LF TODO: If you pass something by value, there is no need to declare it const
+
 // LF TODO: Dou you need all these headers?
 #include <algorithm>
 #include <cmath>
@@ -151,9 +153,9 @@ std::vector<LocEnAndPoss<D, N>> EvalStatBlocks(std::vector<LocEnAndPoss<D, N>> c
 //! Helper function for 'BootstrappingAnalysis'
 template <Dimension D, ParticNum N>
 std::vector<std::vector<LocEnAndPoss<D, N>>>
-BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, UIntType const numEnergies,
-                         IntType const numSamples, RandomGenerator &gen,
-                         std::uniform_int_distribution<> &dist) {
+BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, IntType numEnergies, IntType numSamples,
+                 RandomGenerator &gen, std::uniform_int_distribution<> &dist) {
+    assert(numEnergies > 0);
     assert(numSamples > 0);
 
     std::vector<std::vector<LocEnAndPoss<D, N>>> bootstrapSamples;
@@ -163,12 +165,12 @@ BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, UIntType const
     std::generate_n(std::back_inserter(bootstrapSamples), numSamples,
                     [&energies, &numEnergies, &dist, &gen]() {
                         std::vector<LocEnAndPoss<D, N>> sample;
-                        sample.reserve(numEnergies);
+                        sample.reserve(static_cast<unsigned long int>(numEnergies));
 
                         // Fill the current sample with random energies
                         // LF TODO: Can you avoid [&]?
                         std::generate_n(std::back_inserter(sample), numEnergies, [&]() {
-                            result = energies[static_cast<UIntType>(dist(gen))];
+                            LocEnAndPoss<D, N> result = energies[static_cast<UIntType>(dist(gen))];
                             Position<D> fakePosition;
                             std::fill(fakePosition.begin(), fakePosition.end(),
                                       Coordinate{std::numeric_limits<FPType>::quiet_NaN()});
@@ -197,7 +199,7 @@ BootstrapLEPs(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSampl
     bootstrapVector.reserve(static_cast<long unsigned int>(numSamples));
 
     std::generate_n(std::back_inserter(bootstrapVector), numSamples,
-                    [&bootstrapSamples, &currentSample, &stat, currentSample = UIntType{0u}]() mutable {
+                    [&bootstrapSamples, &stat, currentSample = UIntType{0u}]() mutable {
                         const auto &sample = bootstrapSamples[currentSample];
                         ++currentSample;
 
@@ -319,7 +321,7 @@ VMCResult BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, Int
 
 //! @}
 
-//! @defgroup staistic-wrappers User functions
+//! @defgroup user-functions User functions
 //! @brief The functions that are meant to be called by the user
 //!
 //! Are wrappers for the core functions.
