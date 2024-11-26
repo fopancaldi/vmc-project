@@ -18,7 +18,7 @@ set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 if(BUILD_MAIN)
       add_executable(main-vmc main.cpp src/statistics.cpp)
-      target_include_directories(main-vmc PRIVATE src)
+      target_include_directories(main-vmc PRIVATE src include)
       target_link_libraries(main-vmc tbb atomic)
 endif()
 
