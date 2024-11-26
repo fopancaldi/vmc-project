@@ -216,9 +216,16 @@ inline EnSquared operator/(EnSquared lhs, FPType rhs) { return lhs /= rhs; }
 inline EnSquared operator*(Energy lhs, Energy rhs) { return EnSquared{lhs.val * rhs.val}; }
 inline Energy sqrt(EnSquared es) { return Energy{std::sqrt(es.val)}; }
 //! @brief Average of the energy and its error
+struct PartialVMCResult {
+    Energy energy;
+    Energy stdDev;
+};
+//! @brief Average of the energy and its error
+template<VarParNum V>
 struct VMCResult {
     Energy energy;
     Energy stdDev;
+    VarParams<V> bestParams;
 };
 //! @brief Local energy and the positions of the particles when it was computed
 template <Dimension D, ParticNum N>

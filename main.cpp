@@ -29,12 +29,12 @@ int main() {
         Mass const mass{0.5f};
 
         for (VarParam alpha{0.1f}; alpha.val <= 2; alpha.val += FPType{0.05f}) {
-            VMCResult const vmcr = MeanAndErr_(
+            std::vector<vmcp::LocEnAndPoss<1, 1>> vmcLEPs =
                 VMCLocEnAndPoss<1, 1, 1>(wavefHO, VarParams<1>{alpha}, std::array{secondDerHO},
-                                         std::array{mass}, potHO, coorBounds, numberEnergies, gen));
+                                         std::array{mass}, potHO, coorBounds, numberEnergies, gen);
             std::cout << "alpha: " << std::setprecision(3) << alpha.val
-                      << "\tenergy: " << std::setprecision(5) << vmcr.energy.val << " +/- " << vmcr.stdDev.val
-                      << '\n';
+                      << "\tenergy: " << std::setprecision(5) << Mean(vmcLEPs).val << " +/- "
+                      << StdDev(vmcLEPs).val << '\n';
         }
 
         ParamBounds<1> alphaBounds{Bound{VarParam{0.5f}, VarParam{1.5f}}};
@@ -74,8 +74,8 @@ int main() {
                 VMCLocEnAndPoss<1, 1, 1>(wavefHO, VarParams<1>{alpha}, std::array{secondDerHO},
                                          std::array{mass}, potHO, coorBounds, numberEnergies, gen);
 
-            VMCResult const vmcr1 = Statistics(locEnPos, StatFuncType::blocking, numSamples, gen);
-            VMCResult const vmcr2 = Statistics(locEnPos, StatFuncType::bootstrap, numSamples, gen);
+            PartialVMCResult const vmcr1 = Statistics(locEnPos, StatFuncType::blocking, numSamples, gen);
+            PartialVMCResult const vmcr2 = Statistics(locEnPos, StatFuncType::bootstrap, numSamples, gen);
 
             ConfInterval confInt1 = GetConfInt(vmcr1.energy, vmcr1.stdDev, confLevel);
             ConfInterval confInt2 = GetConfInt(vmcr2.energy, vmcr2.stdDev, confLevel);

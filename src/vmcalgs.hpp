@@ -24,7 +24,7 @@ VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, Laplacians<N, Laplacian> con
                 Potential const &, CoordBounds<D>, IntType, RandomGenerator &);
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Masses<N>,
+VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Masses<N>,
                     Potential const &, CoordBounds<D>, IntType, RandomGenerator &);
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
@@ -36,7 +36,7 @@ VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, Gradients<D, N, FirstDerivat
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, Gradients<D, N, FirstDerivative> const &,
+VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, Gradients<D, N, FirstDerivative> const &,
                     Laplacians<N, Laplacian> const &, Masses<N>, Potential const &, CoordBounds<D>, IntType,
                     RandomGenerator &);
 
@@ -46,7 +46,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<
                                                 RandomGenerator &);
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-VMCResult VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masses<N>, Potential const &,
+VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masses<N>, Potential const &,
                     CoordBounds<D>, IntType, RandomGenerator &);
 
 } // namespace vmcp

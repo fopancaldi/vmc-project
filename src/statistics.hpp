@@ -17,7 +17,7 @@
 namespace vmcp {
 
 template <Dimension D, ParticNum N>
-VMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &, StatFuncType, IntType const &,
+PartialVMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &, StatFuncType, IntType const &,
                      RandomGenerator &);
 
 ConfInterval GetConfInt(Energy, Energy, FPType);
