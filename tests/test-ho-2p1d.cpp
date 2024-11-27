@@ -18,7 +18,7 @@
 
 TEST_CASE("Testing the harmonic oscillator") {
     std::ofstream file_stream;
-    file_stream.open(logFileName, std::ios_base::app);
+    file_stream.open(logFilePath, std::ios_base::app);
 
         SUBCASE("Two particles in one dimension") {
         vmcp::CoordBounds<1> const coordBounds{vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};

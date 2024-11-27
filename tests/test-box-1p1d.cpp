@@ -19,7 +19,7 @@
 
 TEST_CASE("Testing the potential box") {
     std::ofstream file_stream;
-    file_stream.open(logFileName, std::ios_base::app);
+    file_stream.open(logFilePath, std::ios_base::app);
 
     SUBCASE("1D potential box") {
         // l = length of the box
