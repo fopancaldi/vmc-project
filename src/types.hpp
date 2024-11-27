@@ -220,7 +220,7 @@ struct PartialVMCResult {
     Energy energy;
     Energy stdDev;
 };
-//! @brief Average of the energy and its error
+//! @brief Average of the energy and its error, and the best variational parameters
 template<VarParNum V>
 struct VMCResult {
     Energy energy;
