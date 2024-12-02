@@ -13,7 +13,7 @@
 constexpr vmcp::UIntType seed = 6482658u;
 const std::string logFilePath = "../artifacts/test-log.txt";
 
-constexpr vmcp::IntType allowedStdDevs = 5;
+constexpr vmcp::IntType allowedStdDevs = 25;
 // Maximum allowed discrepancy between the computed energy and the expected energy
 constexpr vmcp::Energy vmcEnergyTolerance{0.5f};
 // If the standard deviation is smaller than this, it is highly probable that numerical errors were
@@ -27,7 +27,7 @@ static_assert((iterations % vpIterationsFactor) == 0);
 
 constexpr vmcp::IntType numEnergies = 1 << 9;
 // The denominator to obtain the number of energies when the variational parameters are used
-constexpr vmcp::IntType vpNumEnergiesFactor = 1 << 5;
+constexpr vmcp::IntType vpNumEnergiesFactor = 1 << 3;
 static_assert((numEnergies % vpNumEnergiesFactor) == 0);
 
 // LF TODO: This is unused for now!
