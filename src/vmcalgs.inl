@@ -153,6 +153,8 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
         // The gradient descent should end in a reasonable time
         assert((i + 1) != maxLoops_gradDesc);
 
+        // std::cout << "v: " << currentParams[0].val << '\n';
+
         // Update energy and standard deviation
         std::vector<LocEnAndPoss<D, N>> const currentLEPs = lepsCalc(currentParams);
         currentEnergy = Mean(currentLEPs);
@@ -167,6 +169,8 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
             gradient[v] =
                 (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) / (2 * gradientStep);
             assert(!std::isnan(gradient[v]));
+
+            // std::cout << "g: " << gradient[v] << '\n';
         }
 
         // Set as next step used to compute the gradient the current gradient norm, which is also the size of

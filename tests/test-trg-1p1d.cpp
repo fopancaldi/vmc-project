@@ -1,4 +1,26 @@
 /*
+//!
+//! @file test-trg-2p1d.cpp
+//! @brief Tests for the triangular well system, with one particle in one dimension
+//! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
+//!
+
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
+
+#include "test.hpp"
+#include "vmcp.hpp"
+
+#include <boost/math/special_functions/airy.hpp>
+#include <chrono>
+#include <fstream>
+#include <numbers>
+#include <string>
+#include <tuple>
+
+TEST_CASE("Testing the triangular potential well") {
+    std::ofstream file_stream;
+    file_stream.open(logFilePath, std::ios_base::app);
             // LF TODO: to be finished & adding references
             SUBCASE("1D triangular well potential") {
                 vmcp::IntType const numberEnergies = 1 << 4;
