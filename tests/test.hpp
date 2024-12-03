@@ -22,7 +22,7 @@ constexpr vmcp::Energy stdDevTolerance{std::numeric_limits<vmcp::FPType>::epsilo
 
 constexpr vmcp::IntType iterations = 1 << 6;
 // The denominator to obtain the number of iterations when the variational parameters are used
-constexpr vmcp::IntType vpIterationsFactor = 1 << 5;
+constexpr vmcp::IntType vpIterationsFactor = 1 << 4;
 static_assert((iterations % vpIterationsFactor) == 0);
 
 constexpr vmcp::IntType numEnergies = 1 << 9;
