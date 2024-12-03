@@ -326,8 +326,8 @@ Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPTyp
 //! Used to compute the gradient of the VMC energy in parameter space
 //! @see VMCRBestParams
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
-std::array<Energy, D> ReweightedEnergies_(Wavefunction const &wavef, VarParams<V> oldParams,
-                                          std::vector<LocEnAndPoss<N, D>> oldLEPs, FPType step) {
+std::array<Energy, V> ReweightedEnergies_(Wavefunction const &wavef, VarParams<V> oldParams,
+                                          std::vector<LocEnAndPoss<D, N>> oldLEPs, FPType step) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
     // FP TODO: can you use std::transform here?
