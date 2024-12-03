@@ -35,6 +35,7 @@ TEST_CASE("Testing the harmonic oscillator") {
         vmcp::FPType const omegaStepVP = omega1Step;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const omegaIterations = iterations;
+        vmcp::IntType const newVPIterationsFactor = 2 * vpIterationsFactor;
         struct PotHO {
             std::array<vmcp::Mass, 2> m;
             std::array<vmcp::FPType, 2> omega;
@@ -139,7 +140,7 @@ TEST_CASE("Testing the harmonic oscillator") {
             file_stream << "Harmonic oscillator, no var. parameters (seconds): " << duration.count() << '\n';
         }
 
-        SUBCASE("One variational parameter (se the same mass and ang. vel. for both particles)") {
+        SUBCASE("One variational parameter (using the same mass and ang. vel. for both particles)") {
             PotHO potHO{mInitVP, omegaInitVP};
             auto const wavefHO{[](vmcp::Positions<1, 2> x, vmcp::VarParams<1> alpha) {
                 return std::exp(-alpha[0].val * (x[0][0].val * x[0][0].val + x[1][0].val * x[1][0].val) / 2);
@@ -162,12 +163,12 @@ TEST_CASE("Testing the harmonic oscillator") {
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInitVP}; i != mIterations;
-                 i += vpIterationsFactor, m_[0] += mStepVP * vpIterationsFactor,
-                          m_[1] += mStepVP * vpIterationsFactor) {
+                 i += newVPIterationsFactor, m_[0] += mStepVP * newVPIterationsFactor,
+                          m_[1] += mStepVP * newVPIterationsFactor) {
                 potHO.m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInitVP}; j != omegaIterations;
-                     j += vpIterationsFactor, omega_[0] += omegaStepVP * vpIterationsFactor,
-                              omega_[1] += omega2Step * vpIterationsFactor) {
+                     j += newVPIterationsFactor, omega_[0] += omegaStepVP * newVPIterationsFactor,
+                              omega_[1] += omega2Step * newVPIterationsFactor) {
                     potHO.omega = omega_;
 
                     vmcp::VarParam bestParam{m_[0].val * omega_[0] / vmcp::hbar};
