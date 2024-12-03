@@ -110,11 +110,11 @@ TEST_CASE("Testing the harmonic oscillator") {
         SUBCASE("One variational parameter") {
             PotHO potHO{mInit, omegaInit};
             auto const wavefHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
-                return std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
+                return std::exp(-alpha[0].val * x[0][0].val * x[0][0].val / 2);
             }};
             std::array laplHO{[](vmcp::Positions<1, 1> x, vmcp::VarParams<1> alpha) {
                 return (std::pow(x[0][0].val * alpha[0].val, 2) - alpha[0].val) *
-                       std::exp(-alpha[0].val * x[0][0].val * x[0][0].val);
+                       std::exp(-alpha[0].val * x[0][0].val * x[0][0].val / 2);
             }};
 
             auto start = std::chrono::high_resolution_clock::now();
