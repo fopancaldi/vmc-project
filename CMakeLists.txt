@@ -22,7 +22,7 @@ if(BUILD_MAIN)
       target_link_libraries(main-vmc tbb atomic)
 endif()
 
-if(BUILD_TESTING)
+if(BUILD_TEST_HO)
       include(CTest)
       enable_testing()
 
@@ -35,12 +35,22 @@ if(BUILD_TESTING)
       target_include_directories(test-ho-2p1d PRIVATE src include)
       target_link_libraries(test-ho-2p1d tbb atomic)
       add_test(NAME test-ho-2p1d COMMAND test-ho-2p1d)
+endif()
 
+if(BUILD_TEST_BOX)
+      include(CTest)
+      enable_testing()
+      
       add_executable(test-box-1p1d tests/test-box-1p1d.cpp)
       target_include_directories(test-box-1p1d PRIVATE src include)
       target_link_libraries(test-box-1p1d tbb atomic)
       add_test(NAME test-box-1p1d COMMAND test-box-1p1d)
+endif()
 
+if(BUILD_TEST_STAT)
+      include(CTest)
+      enable_testing()
+      
       add_executable(test-stat tests/test-stat.cpp)
       target_include_directories(test-stat PRIVATE src include)
       target_link_libraries(test-stat tbb atomic)
