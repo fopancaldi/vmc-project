@@ -37,7 +37,7 @@ TEST_CASE("Testing the harmonic oscillator") {
             }
         };
 
-        /*SUBCASE("No variational parameters, with Metropolis or importance sampling") {
+        SUBCASE("No variational parameters, with Metropolis or importance sampling") {
             struct WavefHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
@@ -105,7 +105,7 @@ TEST_CASE("Testing the harmonic oscillator") {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = duration_cast<std::chrono::seconds>(stop - start);
             file_stream << "Harmonic oscillator, no var. parameters (seconds): " << duration.count() << '\n';
-        }*/
+        }
 
         SUBCASE("One variational parameter") {
             PotHO potHO{mInit, omegaInit};
@@ -147,8 +147,6 @@ TEST_CASE("Testing the harmonic oscillator") {
                     CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                       max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);
-
-                    std::cout << "m: " << m_.val << "   omega: " << omega_ << '\n';
                 }
             }
 

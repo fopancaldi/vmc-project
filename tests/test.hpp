@@ -10,7 +10,7 @@
 #include "types.hpp"
 
 // Chosen at random, but fixed to guarantee reproducibility of failed tests
-constexpr vmcp::UIntType seed = 6482658u;
+constexpr vmcp::UIntType seed = 648265u;
 const std::string logFilePath = "../artifacts/test-log.txt";
 
 constexpr vmcp::IntType allowedStdDevs = 10;
