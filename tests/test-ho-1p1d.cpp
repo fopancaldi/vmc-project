@@ -126,7 +126,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                      j += vpIterationsFactor, omega_ += omegaStep * vpIterationsFactor) {
                     potHO.omega = omega_;
 
-                    vmcp::VarParam bestParam{m_.val * omega_ / (2 * vmcp::hbar)};
+                    vmcp::VarParam bestParam{m_.val * omega_ / vmcp::hbar};
                     vmcp::ParamBounds<1> const parBound{
                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
