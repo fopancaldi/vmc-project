@@ -1,7 +1,6 @@
 //!
 //! @file test-rad-1p1d.cpp
-//! @brief Tests for the hydrogen atom radial problem, with one particle in cartesian coordinates (i.e.
-//! 3 dimensions)
+//! @brief Tests for the hydrogen atom radial problem, with one particle in cartesian coordinates
 //! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
 //!
 
