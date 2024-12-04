@@ -35,6 +35,7 @@ if(BUILD_TEST_HO)
       target_include_directories(test-ho-2p1d PRIVATE src include)
       target_link_libraries(test-ho-2p1d tbb atomic)
       add_test(NAME test-ho-2p1d COMMAND test-ho-2p1d)
+endif()
 
       add_executable(test-ho-1p2d tests/test-ho-1p2d.cpp)
       target_include_directories(test-ho-1p2d PRIVATE src include)

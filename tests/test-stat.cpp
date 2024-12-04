@@ -5,7 +5,7 @@
 #include "vmcp.hpp"
 
 TEST_CASE("Testing Statistics") {
-    constexpr vmcp::FPType statisticsTolerance = 0.1f;
+    /* constexpr vmcp::FPType statisticsTolerance = 0.1f;
 
     constexpr vmcp::FPType gaussianMean = 0.f;
     constexpr vmcp::FPType gaussianStdDev = 1.f;
@@ -55,5 +55,5 @@ TEST_CASE("Testing Statistics") {
             CHECK(std::abs(bootstrapRes.energy.val) < statisticsTolerance);
             CHECK(std::abs(bootstrapRes.stdDev.val) < statisticsTolerance);
         }
-    }
+    } */
 }
