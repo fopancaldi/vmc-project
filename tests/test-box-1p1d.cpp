@@ -10,7 +10,6 @@
 #include "test.hpp"
 #include "vmcp.hpp"
 
-#include <boost/math/special_functions/airy.hpp>
 #include <chrono>
 #include <fstream>
 #include <numbers>

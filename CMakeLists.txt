@@ -35,6 +35,21 @@ if(BUILD_TEST_HO)
       target_include_directories(test-ho-2p1d PRIVATE src include)
       target_link_libraries(test-ho-2p1d tbb atomic)
       add_test(NAME test-ho-2p1d COMMAND test-ho-2p1d)
+
+      add_executable(test-ho-1p2d tests/test-ho-1p2d.cpp)
+      target_include_directories(test-ho-1p2d PRIVATE src include)
+      target_link_libraries(test-ho-1p2d tbb atomic)
+      add_test(NAME test-ho-1p2d COMMAND test-ho-1p2d)
+endif()
+
+if(BUILD_TEST_RAD)
+      include(CTest)
+      enable_testing()
+
+      add_executable(test-rad-1p1d tests/test-rad-1p1d.cpp)
+      target_include_directories(test-rad-1p1d PRIVATE src include)
+      target_link_libraries(test-rad-1p1d tbb atomic)
+      add_test(NAME test-rad-1p1d COMMAND test-rad-1p1d)
 endif()
 
 if(BUILD_TEST_BOX)
