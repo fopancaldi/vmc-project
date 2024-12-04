@@ -166,8 +166,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                           m_[1] += mStepVP * vpIterationsFactor) {
                 potHO.m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInitVP}; j != omegaIterations;
-                     j += vpIterationsFactor * 2, omega_[0] += omegaStepVP * vpIterationsFactor * 2,
-                              omega_[1] += omegaStepVP * vpIterationsFactor * 2) {
+                     j += vpIterationsFactor, omega_[0] += omegaStepVP * vpIterationsFactor,
+                              omega_[1] += omegaStepVP * vpIterationsFactor) {
                     potHO.omega = omega_;
 
                     vmcp::VarParam bestParam{m_[0].val * omega_[0] / vmcp::hbar};
