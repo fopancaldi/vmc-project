@@ -33,8 +33,8 @@ TEST_CASE("Testing the harmonic oscillator") {
         vmcp::FPType const omega1Step = 0.2f;
         vmcp::FPType const omega2Step = 0.4f;
         vmcp::FPType const omegaStepVP = omega1Step;
-        vmcp::IntType const mIterations = iterations / 2;
-        vmcp::IntType const omegaIterations = iterations / 2;
+        vmcp::IntType const mIterations = iterations;
+        vmcp::IntType const omegaIterations = iterations;
         struct PotHO {
             std::array<vmcp::Mass, 2> m;
             std::array<vmcp::FPType, 2> omega;
@@ -162,12 +162,12 @@ TEST_CASE("Testing the harmonic oscillator") {
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInitVP}; i != mIterations;
-                 i += vpIterationsFactor, m_[0] += mStepVP * vpIterationsFactor,
-                          m_[1] += mStepVP * vpIterationsFactor) {
+                 i += vpIterationsFactor * 2, m_[0] += mStepVP * vpIterationsFactor * 2,
+                          m_[1] += mStepVP * vpIterationsFactor * 2) {
                 potHO.m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInitVP}; j != omegaIterations;
-                     j += vpIterationsFactor, omega_[0] += omegaStepVP * vpIterationsFactor,
-                              omega_[1] += omegaStepVP * vpIterationsFactor) {
+                     j += vpIterationsFactor * 2, omega_[0] += omegaStepVP * vpIterationsFactor * 2,
+                              omega_[1] += omegaStepVP * vpIterationsFactor * 2) {
                     potHO.omega = omega_;
 
                     vmcp::VarParam bestParam{m_[0].val * omega_[0] / vmcp::hbar};
