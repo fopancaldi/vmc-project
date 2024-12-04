@@ -82,12 +82,12 @@ TEST_CASE("Testing the potential box") {
                         vmcp::Bound{vmcp::Coordinate{-l_ / 2}, vmcp::Coordinate{l_ / 2}}};
                     vmcp::Energy const expectedEn{
                         1 / (2 * m_.val) * std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
-                    vmcp::VMCResult<0> const vmcrMetr =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::ParamBounds<0>{}, laplBox, std::array{m_},
-                                                 potBox, coorBound, numberEnergies, rndGen);
-                    vmcp::VMCResult<0> const vmcrImpSamp =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox,
-                                                 std::array{m_}, potBox, coorBound, numberEnergies, rndGen);
+                    vmcp::VMCResult<0> const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefBox, vmcp::ParamBounds<0>{}, laplBox, std::array{m_}, potBox, coorBound,
+                        numberEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                    vmcp::VMCResult<0> const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox, std::array{m_}, potBox, coorBound,
+                        numberEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", length: " + std::to_string(l_)};

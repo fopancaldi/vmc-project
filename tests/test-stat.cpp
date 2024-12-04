@@ -14,7 +14,6 @@ TEST_CASE("Testing Statistics") {
     std::normal_distribution<> dist(gaussianMean, gaussianStdDev);
 
     vmcp::RandomGenerator gen{seed};
-    vmcp::IntType const numSamples = 10000;
 
     // Generate gaussian data points
     std::vector<vmcp::LocEnAndPoss<1, 1>> data(numPoints);
@@ -25,7 +24,7 @@ TEST_CASE("Testing Statistics") {
     SUBCASE("Testing EvalBlocking") {
         std::vector<vmcp::LocEnAndPoss<1, 1>> testEnergies = {
             {vmcp::Energy{1.}, 0.}, {vmcp::Energy{2.}, 0.}, {vmcp::Energy{3.}, 0.}, {vmcp::Energy{4.}, 0.}};
-        vmcp::BlockingResult blockingResults = EvalBlocking(testEnergies, numEnergies);
+        vmcp::BlockingResult blockingResults = EvalBlocking(testEnergies, 4);
         CHECK(blockingResults.means[0].val == 2.5);
         CHECK(std::abs(blockingResults.stdDevs[0].val - 1.) < statisticsTolerance);
     }

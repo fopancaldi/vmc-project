@@ -96,11 +96,13 @@ TEST_CASE("Testing the triangular potential well") {
                                 std::pow(std::pow(vmcp::hbar * F_, 2) / (2 * m_.val), 1.0f / 3.0f)};
                             vmcp::VMCResult const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
                                 wavefTriangular, vmcp::ParamBounds<0>{}, laplTriangular, std::array{m_},
-                                potTriangular, coordBound, numberEnergies, rndGen);
+                                potTriangular, coordBound, numberEnergies, vmcp::StatFuncType::regular,
+numSamples, rndGen);
 
                             vmcp::VMCResult const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
                                 wavefTriangular, vmcp::ParamBounds<0>{}, gradTriangular, laplTriangular,
-                                std::array{m_}, potTriangular, coordBound, numberEnergies, rndGen);
+                                std::array{m_}, potTriangular, coordBound,
+numberEnergies,vmcp::StatFuncType::regular, numSamples, rndGen);
 
                             std::string logMessage{"mass: " + std::to_string(m_.val) +
                                                    ", slope: " + std::to_string(F_)};

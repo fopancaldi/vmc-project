@@ -31,8 +31,8 @@ constexpr vmcp::IntType numEnergies = 1 << 9;
 constexpr vmcp::IntType vpNumEnergiesFactor = 1 << 3;
 static_assert((numEnergies % vpNumEnergiesFactor) == 0);
 
-// LF TODO: This is unused for now!
-// constexpr bool testImpSamp = true;
+// The number of samples for bootsrapping technique of statistical analysis
+constexpr vmcp::IntType numSamples = 10000;
 
 constexpr vmcp::FPType minParamFactor = 0.33f;
 constexpr vmcp::FPType maxParamFactor = 3;

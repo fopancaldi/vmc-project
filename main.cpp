@@ -10,6 +10,7 @@ using namespace vmcp;
 
 // The various features of main can be toggled here
 constexpr std::array features = {true, false};
+constexpr vmcp::IntType numSamples = 10000;
 
 int main() {
     RandomGenerator gen{(std::random_device())()};
@@ -31,7 +32,8 @@ int main() {
         // One variational parameter
         ParamBounds<1> const alphaBounds{Bound{VarParam{0.5f}, VarParam{1.5f}}};
         VMCResult const vmcrBest =
-            VMCEnergy<1, 1, 1>(wavefHO, alphaBounds, laplHO, mass, potHO, coorBounds, numberEnergies, gen);
+            VMCEnergy<1, 1, 1>(wavefHO, alphaBounds, laplHO, mass, potHO, coorBounds, numberEnergies,
+                               vmcp::StatFuncType::regular, numSamples, gen);
         std::cout << "Energy with the best alpha:\n"
                   << std::setprecision(3) << "Energy: " << std::setprecision(5) << vmcrBest.energy.val
                   << " +/- " << vmcrBest.stdDev.val << '\n';
@@ -100,29 +102,27 @@ int main() {
                 VMCLocEnAndPoss<1, 1, 1>(wavefHO, VarParams<1>{alpha}, std::array{secondDerHO},
                                          std::array{mass}, potHO, coorBounds, numberEnergies, gen);
 
-            PartialVMCResult const vmcr1 = Statistics(locEnPos, StatFuncType::blocking, numSamples, gen);
-            PartialVMCResult const vmcr2 = Statistics(locEnPos, StatFuncType::bootstrap, numSamples, gen);
+            Energy const vmcr1 = Statistics(locEnPos, StatFuncType::blocking, numSamples, gen);
+            Energy const vmcr2 = Statistics(locEnPos, StatFuncType::bootstrap, numSamples, gen);
 
-            ConfInterval confInt1 = GetConfInt(vmcr1.energy, vmcr1.stdDev, confLevel);
-            ConfInterval confInt2 = GetConfInt(vmcr2.energy, vmcr2.stdDev, confLevel);
+            ConfInterval confInt1 = GetConfInt(vmcr1, vmcr1, confLevel);
+            ConfInterval confInt2 = GetConfInt(vmcr2, vmcr2, confLevel);
 
             std::cout << "alpha: " << std::setprecision(3) << alpha.val
-                      << "\tenergy: " << std::setprecision(5) << vmcr1.energy.val << " +/- "
-                      << vmcr1.stdDev.val << "\tconf. interval of " << confLevel
-                      << "%: " << std::setprecision(3) << confInt1.min.val << " -- " << confInt1.max.val
-                      << '\n';
+                      << "\tenergy: " << std::setprecision(5) << vmcr1.val << " +/- " << vmcr1.val
+                      << "\tconf. interval of " << confLevel << "%: " << std::setprecision(3)
+                      << confInt1.min.val << " -- " << confInt1.max.val << '\n';
             std::cout << "alpha: " << std::setprecision(3) << alpha.val
-                      << "\tenergy: " << std::setprecision(5) << vmcr2.energy.val << " +/- "
-                      << vmcr2.stdDev.val << "\tconf. interval of " << confLevel
-                      << "%: " << std::setprecision(3) << confInt2.min.val << " -- " << confInt2.max.val
-                      << '\n';
+                      << "\tenergy: " << std::setprecision(5) << vmcr2.val << " +/- " << vmcr2.val
+                      << "\tconf. interval of " << confLevel << "%: " << std::setprecision(3)
+                      << confInt2.min.val << " -- " << confInt2.max.val << '\n';
         }
 
         ParamBounds<1> alphaBounds{Bound{VarParam{0.5f}, VarParam{1.5f}}};
 
         VMCResult const vmcrBest =
             VMCEnergy<1, 1, 1>(wavefHO, alphaBounds, std::array{secondDerHO}, std::array{mass}, potHO,
-                               coorBounds, numberEnergies, gen);
+                               coorBounds, numberEnergies, vmcp::StatFuncType::regular, numSamples, gen);
         std::cout << "Energy with the best alpha:\n"
                   << std::setprecision(3) << "Energy: " << std::setprecision(5) << vmcrBest.energy.val
                   << " +/- " << vmcrBest.stdDev.val << '\n';
