@@ -5,7 +5,7 @@
 #include "vmcp.hpp"
 
 TEST_CASE("Testing Statistics") {
-    /* constexpr vmcp::FPType statisticsTolerance = 0.1f;
+    constexpr vmcp::FPType statisticsTolerance = 0.1f;
 
     constexpr vmcp::FPType gaussianMean = 0.f;
     constexpr vmcp::FPType gaussianStdDev = 1.f;
@@ -31,10 +31,8 @@ TEST_CASE("Testing Statistics") {
     }
 
     SUBCASE("Testing BlockingOut") {
-        vmcp::PartialVMCResult const blockingRes =
-            Statistics(data, vmcp::StatFuncType::blocking, numSamples, gen);
-        CHECK(std::abs(blockingRes.energy.val) < statisticsTolerance);
-        CHECK(std::abs(blockingRes.stdDev.val) < statisticsTolerance);
+        vmcp::Energy const blockingStdDev = Statistics(data, vmcp::StatFuncType::blocking, numSamples, gen);
+        CHECK(std::abs(blockingStdDev.val) < statisticsTolerance);
     }
 
     SUBCASE("Testing BootstrapAnalysis") {
@@ -44,16 +42,14 @@ TEST_CASE("Testing Statistics") {
                                                                   {vmcp::Energy{3.f}, 0.},
                                                                   {vmcp::Energy{4.f}, 0.},
                                                                   {vmcp::Energy{5.f}, 0.}};
-            vmcp::PartialVMCResult bootstrapResults = BootstrapAnalysis(testEnergies, numSamples, gen);
-            CHECK(std::abs(bootstrapResults.energy.val - 3.) < statisticsTolerance);
-            CHECK(std::abs(bootstrapResults.stdDev.val - std::sqrt(1. / 2.)) < statisticsTolerance);
+            vmcp::Energy bootstrapStdDev = BootstrapAnalysis(testEnergies, numSamples, gen);
+            CHECK(std::abs(bootstrapStdDev.val - std::sqrt(1. / 2.)) < statisticsTolerance);
         }
 
         SUBCASE("Testing bootstrap with Gaussian data") {
-            vmcp::PartialVMCResult const bootstrapRes =
+            vmcp::Energy const bootstrapStdDev =
                 Statistics(data, vmcp::StatFuncType::bootstrap, numSamples, gen);
-            CHECK(std::abs(bootstrapRes.energy.val) < statisticsTolerance);
-            CHECK(std::abs(bootstrapRes.stdDev.val) < statisticsTolerance);
+            CHECK(std::abs(bootstrapStdDev.val) < statisticsTolerance);
         }
-    } */
+    }
 }
