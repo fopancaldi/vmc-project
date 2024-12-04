@@ -25,7 +25,7 @@ jobs:
           .devcontainer/library-scripts/provide-dependencies-ci.sh
       - name: Build
         run: |
-          cmake -S . -B build -D BUILD_MAIN=OFF -D BUILD_TESTING=ON
+          cmake -S . -B build -D BUILD_MAIN=OFF -D BUILD_TEST_HO=ON -D BUILD_TEST_BOX=ON -D BUILD_TEST_STAT=ON
           cmake --build build
       - name: Run tests
         run: |
