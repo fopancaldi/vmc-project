@@ -32,6 +32,7 @@ TEST_CASE("Testing the harmonic oscillator") {
         vmcp::Mass const mStepVP = m1Step;
         vmcp::FPType const omega1Step = 0.2f;
         vmcp::FPType const omega2Step = 0.4f;
+        vmcp::FPType const omegaStepVP = omega1Step;
         vmcp::IntType const mIterations = iterations / 2;
         vmcp::IntType const omegaIterations = iterations / 2;
         struct PotHO {
@@ -164,29 +165,33 @@ TEST_CASE("Testing the harmonic oscillator") {
                  i += vpIterationsFactor, m_[0] += mStepVP * vpIterationsFactor,
                           m_[1] += mStepVP * vpIterationsFactor) {
                 potHO.m = m_;
-                std::array<vmcp::FPType, 2> const omega_ = omegaInitVP;
+                for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInitVP}; j != omegaIterations;
+                     j += vpIterationsFactor * 2, omega_[0] += omegaStepVP * vpIterationsFactor * 2,
+                              omega_[1] += omegaStepVP * vpIterationsFactor * 2) {
+                    potHO.omega = omega_;
 
-                vmcp::VarParam bestParam{m_[0].val * omega_[0] / vmcp::hbar};
-                vmcp::ParamBounds<1> const parBound{
-                    NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
-                vmcp::Energy const expectedEn{vmcp::hbar * omega_[0] / 2};
+                    vmcp::VarParam bestParam{m_[0].val * omega_[0] / vmcp::hbar};
+                    vmcp::ParamBounds<1> const parBound{
+                        NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
+                    vmcp::Energy const expectedEn{vmcp::hbar * omega_[0]};
 
-                auto startOnePar = std::chrono::high_resolution_clock::now();
-                vmcp::VMCResult<1> const vmcr =
-                    vmcp::VMCEnergy<1, 2, 1>(wavefHO, parBound, laplsHO, std::array{m_}, potHO, coordBounds,
-                                             numEnergies / vpNumEnergiesFactor, rndGen);
-                auto stopOnePar = std::chrono::high_resolution_clock::now();
-                auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
-                file_stream << "Harmonic oscillator, one var.parameter, with mass " << m_[0].val
-                            << " and ang. vel. " << omega_[0] << " (seconds): " << durationOnePar.count()
-                            << '\n';
+                    auto startOnePar = std::chrono::high_resolution_clock::now();
+                    vmcp::VMCResult<1> const vmcr =
+                        vmcp::VMCEnergy<1, 2, 1>(wavefHO, parBound, laplsHO, std::array{m_}, potHO,
+                                                 coordBounds, numEnergies / vpNumEnergiesFactor, rndGen);
+                    auto stopOnePar = std::chrono::high_resolution_clock::now();
+                    auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
+                    file_stream << "Harmonic oscillator, one var.parameter, with mass " << m_[0].val
+                                << " and ang. vel. " << omega_[0] << " (seconds): " << durationOnePar.count()
+                                << '\n';
 
-                std::string logMessage{"mass: " + std::to_string(m_[0].val) +
-                                       ", ang. vel.: " + std::to_string(omega_[0])};
-                CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
-                                  max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                              logMessage);
+                    std::string logMessage{"mass: " + std::to_string(m_[0].val) +
+                                           ", ang. vel.: " + std::to_string(omega_[0])};
+                    CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                    CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                      max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
+                                  logMessage);
+                }
             }
 
             auto stop = std::chrono::high_resolution_clock::now();
