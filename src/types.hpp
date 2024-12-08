@@ -215,13 +215,14 @@ inline EnSquared operator*(FPType lhs, EnSquared rhs) { return rhs * lhs; }
 inline EnSquared operator/(EnSquared lhs, FPType rhs) { return lhs /= rhs; }
 inline EnSquared operator*(Energy lhs, Energy rhs) { return EnSquared{lhs.val * rhs.val}; }
 inline Energy sqrt(EnSquared es) { return Energy{std::sqrt(es.val)}; }
+// LF TODO: Remove when you do not need this anymore
 //! @brief Average of the energy and its error
 struct PartialVMCResult {
     Energy energy;
     Energy stdDev;
 };
 //! @brief Average of the energy and its error, and the best variational parameters
-template<VarParNum V>
+template <VarParNum V>
 struct VMCResult {
     Energy energy;
     Energy stdDev;
@@ -263,10 +264,8 @@ struct ConfInterval {
 };
 //! @brief Statistical tags
 enum class Statistic { mean, stdDev };
-// LF TODO: No 'regular' mean and stdDev?
-// LF TODO: Add it and put assert(false) in the default switch case
 //! @brief Statistical analysis fuctions
-enum class StatFuncType { blocking, bootstrap };
+enum class StatFuncType { regular, blocking, bootstrap };
 
 //! @}
 

@@ -82,12 +82,12 @@ TEST_CASE("Testing the radial problem") {
                     laplRad[0].m = m_;
 
                     vmcp::Energy const expectedEn{-k_ * k_ * m_.val / (2 * vmcp::hbar * vmcp::hbar)};
-                    vmcp::VMCResult const vmcrMetr =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefRad, vmcp::ParamBounds<0>{}, laplRad, std::array{m_},
-                                                 potRad, coordBound, numEnergies, rndGen);
-                    vmcp::VMCResult const vmcrImpSamp =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefRad, vmcp::ParamBounds<0>{}, gradRad, laplRad,
-                                                 std::array{m_}, potRad, coordBound, numEnergies, rndGen);
+                    vmcp::VMCResult const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefRad, vmcp::ParamBounds<0>{}, laplRad, std::array{m_}, potRad, coordBound,
+                        numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                    vmcp::VMCResult const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefRad, vmcp::ParamBounds<0>{}, gradRad, laplRad, std::array{m_}, potRad,
+                        coordBound, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            "  Coulomb const: " + std::to_string(k_)};
@@ -97,18 +97,18 @@ TEST_CASE("Testing the radial problem") {
                                       max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
                                   logMessage);*/
                     CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                    /*CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
-                                      max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
-                                  logMessage);*/
+                    /* CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
+                                       max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
+                                   logMessage);*/
                 }
+            }
 
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = duration_cast<std::chrono::seconds>(stop - start);
                 file_stream << "Radial problem, no var. parameters (seconds): " << duration.count() << '\n';
-            }
         }
 
-        /* LF FIXME: 4 out of 8 variational test fail
+        /*
                 SUBCASE("One variational parameter") {
                     auto const wavefRad{[](vmcp::Positions<1, 1> r, vmcp::VarParams<1> alpha) {
                         return std::abs(r[0][0].val) * std::exp(-std::abs(r[0][0].val) * alpha[0].val);
@@ -120,6 +120,7 @@ TEST_CASE("Testing the radial problem") {
                     }};
 
                     auto start = std::chrono::high_resolution_clock::now();
+
                     for (auto [j, k_] = std::tuple{vmcp::IntType{0}, kInit}; j != kIterations;
                          j += vpIterationsFactor, k_ += kStep * vpIterationsFactor) {
                         PotRad potRad{kInit};
@@ -133,8 +134,9 @@ TEST_CASE("Testing the radial problem") {
 
                             auto startOnePar = std::chrono::high_resolution_clock::now();
                             vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(
-                                wavefRad, parBound, laplRad, std::array{m_}, potRad, coordBound, numEnergies,
-           rndGen); auto stopOnePar = std::chrono::high_resolution_clock::now(); auto durationOnePar =
+                                wavefRad, parBound, laplRad, std::array{m_}, potRad, coordBound,
+           numEnergies,vmcp::StatFuncType::regular, numSamples, rndGen); auto stopOnePar =
+           std::chrono::high_resolution_clock::now(); auto durationOnePar =
            duration_cast<std::chrono::seconds>(stopOnePar - startOnePar); file_stream << "Radial problem, one
            var.parameter, with mass " << m_.val
                                         << " (seconds): " << durationOnePar.count() << '\n';
@@ -147,7 +149,6 @@ TEST_CASE("Testing the radial problem") {
                                           logMessage);
                         }
                     }
-
                     auto stop = std::chrono::high_resolution_clock::now();
                     auto duration = duration_cast<std::chrono::seconds>(stop - start);
                     file_stream << "Radial problem, one var. parameter (seconds): " << duration.count() <<

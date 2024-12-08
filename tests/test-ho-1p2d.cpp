@@ -94,12 +94,12 @@ TEST_CASE("Testing the harmonic oscillator") {
                     laplHO[0].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
-                    vmcp::VMCResult const vmcrMetr =
-                        vmcp::VMCEnergy<2, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, laplHO, std::array{m_},
-                                                 potHO, coordBounds, numEnergies, rndGen);
-                    vmcp::VMCResult const vmcrImpSamp =
-                        vmcp::VMCEnergy<2, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO,
-                                                 std::array{m_}, potHO, coordBounds, numEnergies, rndGen);
+                    vmcp::VMCResult const vmcrMetr = vmcp::VMCEnergy<2, 1, 0>(
+                        wavefHO, vmcp::ParamBounds<0>{}, laplHO, std::array{m_}, potHO, coordBounds,
+                        numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                    vmcp::VMCResult const vmcrImpSamp = vmcp::VMCEnergy<2, 1, 0>(
+                        wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO, std::array{m_}, potHO, coordBounds,
+                        numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", ang. vel.: " + std::to_string(omega_)};
@@ -120,56 +120,56 @@ TEST_CASE("Testing the harmonic oscillator") {
                         << '\n';
         }
 
-        /*SUBCASE("One variational parameter") {
-            PotHO potHO{mInit, omegaInit};
+        // LF FIXME: some tests fail
+        /* SUBCASE("One variational parameter") {
+             PotHO potHO{mInit, omegaInit};
 
-            auto const wavefHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
-                return std::exp(-alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) / 2);
-            }};
-            std::array laplHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
-                return (alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) - 2) *
-                       alpha[0].val *
-                       std::exp(-alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) / 2);
-            }};
+             auto const wavefHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
+                 return std::exp(-alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) / 2);
+             }};
+             std::array laplHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
+                 return (alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) - 2) *
+                        alpha[0].val *
+                        std::exp(-alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) / 2);
+             }};
 
-            auto start = std::chrono::high_resolution_clock::now();
+             auto start = std::chrono::high_resolution_clock::now();
 
-            for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
-                 i += vpIterationsFactor, m_ += mStep * vpIterationsFactor) {
-                potHO.m = m_;
-                for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
-                     j += vpIterationsFactor, omega_ += omegaStep * vpIterationsFactor) {
-                    potHO.omega = omega_;
+             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
+                  i += vpIterationsFactor, m_ += mStep * vpIterationsFactor) {
+                 potHO.m = m_;
+                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
+                      j += vpIterationsFactor, omega_ += omegaStep * vpIterationsFactor) {
+                     potHO.omega = omega_;
 
-                    vmcp::VarParam bestParam{m_.val * omega_ / vmcp::hbar};
-                    vmcp::ParamBounds<1> const parBound{
-                        NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
-                    vmcp::Energy const expectedEn{vmcp::hbar * omega_};
+                     vmcp::VarParam bestParam{m_.val * omega_ / vmcp::hbar};
+                     vmcp::ParamBounds<1> const parBound{
+                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
+                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
 
-                    auto startOnePar = std::chrono::high_resolution_clock::now();
-                    vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 1>(
-                        wavefHO, parBound, laplHO, std::array{m_}, potHO, coordBounds, numEnergies, rndGen);
-                    auto stopOnePar = std::chrono::high_resolution_clock::now();
-                    auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
-                    file_stream << "2D Harmonic oscillator, one var.parameter, with mass " << m_.val
-                                << " and ang. vel. " << omega_ << " (seconds): " << durationOnePar.count()
-                                << '\n';
+                     auto startOnePar = std::chrono::high_resolution_clock::now();
+                     vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 1>(
+                         wavefHO, parBound, laplHO, std::array{m_}, potHO, coordBounds, numEnergies,
+         vmcp::StatFuncType::regular, numSamples, rndGen); auto stopOnePar =
+         std::chrono::high_resolution_clock::now(); auto durationOnePar =
+         duration_cast<std::chrono::seconds>(stopOnePar - startOnePar); file_stream << "2D Harmonic
+         oscillator, one var.parameter, with mass " << m_.val
+                                 << " and ang. vel. " << omega_ << " (seconds): " << durationOnePar.count()
+                                 << '\n';
 
-                    std::string logMessage{"mass: " + std::to_string(m_.val) +
-                                           ", ang. vel.: " + std::to_string(omega_)};
-                    CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                    CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
-                                      max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                  logMessage);
+                     std::string logMessage{"mass: " + std::to_string(m_.val) +
+                                            ", ang. vel.: " + std::to_string(omega_)};
+                     CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                     CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                       max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
+                                   logMessage);
+                 }
+             }
 
-                    std::cout << "Energy: " << vmcr.energy << '\n';
-                }
-            }
-
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = duration_cast<std::chrono::seconds>(stop - start);
-            file_stream << "2D Harmonic oscillator, one var. parameter (seconds): " << duration.count()
-                        << '\n';
-        }*/
+             auto stop = std::chrono::high_resolution_clock::now();
+             auto duration = duration_cast<std::chrono::seconds>(stop - start);
+             file_stream << "2D Harmonic oscillator, one var. parameter (seconds): " << duration.count()
+                         << '\n';
+         }*/
     }
 }

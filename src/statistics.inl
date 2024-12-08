@@ -18,6 +18,10 @@
 
 #include "statistics.hpp"
 
+// LF TODO: Plese put one @ command in doxygen on each line
+// For example, no two @see in the same line
+// Also, you do not need to put the @see test-stat.cpp
+
 // LF TODO: If you pass something by value, there is no need to declare it const
 
 // LF TODO: Dou you need all these headers?
@@ -57,10 +61,9 @@ Energy Mean(std::vector<LocEnAndPoss<D, N>> const &v) {
     assert(v.size() > 1);
     auto const size = std::ssize(v);
 
-    Energy const mean = std::accumulate(v.begin(), v.end(), Energy{0},
-                                        [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
-                        static_cast<FPType>(size);
-    return mean;
+    return std::accumulate(v.begin(), v.end(), Energy{0},
+                             [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
+             static_cast<FPType>(size);
 };
 
 //! @brief Calculates the error on the mean (by taking just one standard deviation)
@@ -233,7 +236,7 @@ BootstrapLEPs(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSampl
 //! @param numEnergies The number of energies
 //! @see BlockingAnalysis
 //!
-//! @return Three vectors containing resepctively a list of block sizes, means and standard deviations
+//! @return Three vectors containing respectively a list of block sizes, means and standard deviations
 template <Dimension D, ParticNum N>
 BlockingResult EvalBlocking(std::vector<LocEnAndPoss<D, N>> const &energies, IntType const &numEnergies) {
     assert(numEnergies > 0);
@@ -265,14 +268,20 @@ BlockingResult EvalBlocking(std::vector<LocEnAndPoss<D, N>> const &energies, Int
     return BlockingResult{blockSizes, means, stdDevs};
 }
 
+// LF TODO: Brief description is too long
+// Also, why are you talking about 'blockSizes' and 'means' here?
+// There is no mention of them inside the function
+
 //! @brief Takes the result of EvalBlocking and then looks for the plateau of standard deviation to get the
-//! best estimate of the error.
+//! best estimate of the error. "blockSizes" and "means" are not used by BlockingAnalysis, they are used
+//! for testing blocking method
 //! @see EvalBlocking
+//! @see test-stat.cpp
 //!
 //! @param energies The energies and positions, where only the energies will be used
-//! @return The mean corresponding to the best standard deviation and the best standard deviation
+//! @return The best standard deviation
 template <Dimension D, ParticNum N>
-PartialVMCResult BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies) {
+Energy BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies) {
     IntType const numEnergies = static_cast<IntType>(std::ssize(energies));
     // Check that numEnergies is a power of 2 using bitwise AND between the number n and (n - 1)
     assert((numEnergies & (numEnergies - 1)) == 0);
@@ -287,10 +296,7 @@ PartialVMCResult BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energie
     assert(pltIt != blockingResult.stdDevs.end());
     Energy bestStdDev = *pltIt;
 
-    // Compute the index of the plateau element for standard deviation
-    IntType index = static_cast<IntType>(std::distance(blockingResult.stdDevs.begin(), pltIt) + 1);
-    Energy mean = blockingResult.means[static_cast<UIntType>(index)];
-    return PartialVMCResult{mean, bestStdDev};
+    return bestStdDev;
 }
 
 //! @brief Samples dataset with replacement multiple times, then evaluates mean and standard deviation of
@@ -300,8 +306,8 @@ PartialVMCResult BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energie
 //! @param gen The random generator
 //! @return The mean and standard deviation of bootstrapped samples
 template <Dimension D, ParticNum N>
-PartialVMCResult BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntType const &numSamples,
-                            RandomGenerator &gen) {
+Energy BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntType const &numSamples,
+                         RandomGenerator &gen) {
     IntType const numEnergies = static_cast<IntType>(std::ssize(energies));
     assert(numEnergies > 1);
     std::uniform_int_distribution<> dist(0, numEnergies - 1);
@@ -310,17 +316,12 @@ PartialVMCResult BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energi
     std::vector<std::vector<LocEnAndPoss<D, N>>> bootstrapSamples =
         BootstrapSamples(energies, numEnergies, numSamples, gen, dist);
 
-    // Calculate mean of each sample vector and place into bootstrapMeans
-    std::vector<LocEnAndPoss<D, N>> bootstrapMeans =
-        BootstrapLEPs(bootstrapSamples, numSamples, Statistic::mean);
-    // Calculate mean of each sample vector and place into bootstrapStdDevs
+    // Calculate std. dev. of each sample vector and place into bootstrapStdDevs
     std::vector<LocEnAndPoss<D, N>> bootstrapStdDevs =
         BootstrapLEPs(bootstrapSamples, numSamples, Statistic::stdDev);
 
-    // Calculate statistics of each means
-    Energy meanOfMeans = GetStat(bootstrapMeans, Statistic::mean);
     Energy stdDev = GetStat(bootstrapStdDevs, Statistic::mean);
-    return PartialVMCResult{meanOfMeans, stdDev};
+    return stdDev;
 }
 
 //! @}
@@ -331,6 +332,8 @@ PartialVMCResult BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energi
 //! Are wrappers for the core functions.
 //! @{
 
+// LF TODO: The name 'Statistics' does not make it clear that you are calculating the error on the average
+
 //! @brief Wrapper function called by the user, choose which statistical method to use
 //! @param energies The energies and positions, where only the energies will be used
 //! @param function The desired statistical method the user wants to apply to Monte Carlo data
@@ -338,8 +341,8 @@ PartialVMCResult BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energi
 //! @param gen The random generator
 //! @return The results (mean and standard deviation) of the desired statistical analysis
 template <Dimension D, ParticNum N>
-PartialVMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &energies, StatFuncType function,
-                     IntType const &numSamples, RandomGenerator &gen) {
+Energy Statistics(std::vector<LocEnAndPoss<D, N>> const &energies, StatFuncType function,
+                  IntType const &numSamples, RandomGenerator &gen) {
     switch (function) {
     case StatFuncType::blocking:
         return BlockingAnalysis(energies);
@@ -347,8 +350,9 @@ PartialVMCResult Statistics(std::vector<LocEnAndPoss<D, N>> const &energies, Sta
     case StatFuncType::bootstrap:
         return BootstrapAnalysis(energies, numSamples, gen);
         break;
+    case StatFuncType::regular:
+        return StdDev(energies);
     default:
-        /* return MeanAndErr_(energies); */
         assert(false);
     }
 }
