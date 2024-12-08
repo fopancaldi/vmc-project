@@ -18,6 +18,9 @@
 
 #include "statistics.hpp"
 
+// LF TODO: Plese put one @ command in doxygen on each line
+// For example, no two @see in the same line
+
 // LF TODO: If you pass something by value, there is no need to declare it const
 
 // LF TODO: Dou you need all these headers?
@@ -57,10 +60,9 @@ Energy Mean(std::vector<LocEnAndPoss<D, N>> const &v) {
     assert(v.size() > 1);
     auto const size = std::ssize(v);
 
-    Energy const mean = std::accumulate(v.begin(), v.end(), Energy{0},
-                                        [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
-                        static_cast<FPType>(size);
-    return mean;
+    return std::accumulate(v.begin(), v.end(), Energy{0},
+                             [](Energy e, LocEnAndPoss<D, N> leps) { return e + leps.localEn; }) /
+             static_cast<FPType>(size);
 };
 
 //! @brief Calculates the error on the mean (by taking just one standard deviation)
