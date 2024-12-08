@@ -85,12 +85,12 @@ TEST_CASE("Testing the potential box") {
                     vmcp::FPType const derivativeStep = coordBound[0].Length().val / derivativeStepDenom;
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {
-                        vmcp::VMCResult<0> const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
                             wavefBox, vmcp::ParamBounds<0>{}, laplBox, std::array{m_}, potBox, coordBound,
                             numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                        CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
-                                          max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
                     SUBCASE("Metropolis algorithm, numerical derivative") {
@@ -103,12 +103,12 @@ TEST_CASE("Testing the potential box") {
                                       logMessage);
                     }
                     SUBCASE("Importance sampling algorithm, analytical derivative") {
-                        vmcp::VMCResult<0> const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
                             wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox, std::array{m_}, potBox,
                             coordBound, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                        CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
-                                          max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
                     SUBCASE("Importance sampling algorithm, numerical derivative") {

@@ -19,7 +19,7 @@ constexpr vmcp::Energy vmcEnergyTolerance{0.5f};
 // Should have been constexpr, we just used const since otherwise the intellisense complains
 // If the standard deviation is smaller than this, it is highly probable that numerical errors were
 // non-negligible
-const vmcp::Energy stdDevTolerance{std::numeric_limits<vmcp::FPType>::epsilon() * 100};
+const vmcp::Energy stdDevTolerance{std::numeric_limits<vmcp::FPType>::epsilon() * 1000};
 
 constexpr vmcp::IntType iterations = 1 << 6;
 // The denominator to obtain the number of iterations when the variational parameters are used
