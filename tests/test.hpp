@@ -31,6 +31,7 @@ constexpr vmcp::IntType numEnergies = 1 << 9;
 constexpr vmcp::IntType vpNumEnergiesFactor = 1 << 3;
 static_assert((numEnergies % vpNumEnergiesFactor) == 0);
 
+// LF TODO: If it is only used for bootstrapping, maybe rename to 'boostrapSamples'?
 // The number of samples for bootsrapping technique of statistical analysis
 constexpr vmcp::IntType numSamples = 10000;
 
@@ -45,5 +46,8 @@ inline vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType 
     vmcp::VarParam const high{std::min(param.val * highFactor, param.val + maxDiff.val)};
     return vmcp::Bound<vmcp::VarParam>{low, high};
 }
+
+// Denominator to obtain the derivative step from the length of the integration region
+constexpr vmcp::FPType derivativeStepDenom = 100000;
 
 #endif
