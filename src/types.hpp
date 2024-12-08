@@ -261,10 +261,8 @@ struct ConfInterval {
 };
 //! @brief Statistical tags
 enum class Statistic { mean, stdDev };
-// LF TODO: No 'regular' mean and stdDev?
-// LF TODO: Add it and put assert(false) in the default switch case
 //! @brief Statistical analysis fuctions
-enum class StatFuncType { blocking, bootstrap };
+enum class StatFuncType { regular, blocking, bootstrap };
 
 //! @}
 

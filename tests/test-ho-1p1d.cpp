@@ -82,12 +82,12 @@ TEST_CASE("Testing the harmonic oscillator") {
                     laplHO[0].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
-                    vmcp::VMCResult<0> const vmcrMetr =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, laplHO, std::array{m_},
-                                                 potHO, coordBound, numEnergies, rndGen);
-                    vmcp::VMCResult<0> const vmcrImpSamp =
-                        vmcp::VMCEnergy<1, 1, 0>(wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO,
-                                                 std::array{m_}, potHO, coordBound, numEnergies, rndGen);
+                    vmcp::VMCResult<0> const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefHO, vmcp::ParamBounds<0>{}, laplHO, std::array{m_}, potHO, coordBound,
+                        numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                    vmcp::VMCResult<0> const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO, std::array{m_}, potHO, coordBound,
+                        numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            ", ang. vel.: " + std::to_string(omega_)};
@@ -132,9 +132,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
 
                     auto startOnePar = std::chrono::high_resolution_clock::now();
-                    vmcp::VMCResult<1> const vmcr =
-                        vmcp::VMCEnergy<1, 1, 1>(wavefHO, parBound, laplHO, std::array{m_}, potHO, coordBound,
-                                                 numEnergies / vpNumEnergiesFactor, rndGen);
+                    vmcp::VMCResult<1> const vmcr = vmcp::VMCEnergy<1, 1, 1>(
+                        wavefHO, parBound, laplHO, std::array{m_}, potHO, coordBound,
+                        numEnergies / vpNumEnergiesFactor, vmcp::StatFuncType::regular, numSamples, rndGen);
                     auto stopOnePar = std::chrono::high_resolution_clock::now();
                     auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
                     file_stream << "Harmonic oscillator, one var.parameter, with mass " << m_.val
