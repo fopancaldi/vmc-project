@@ -240,6 +240,7 @@ template <typename T>
 struct Bound {
     T lower;
     T upper;
+    Bound() : lower{}, upper{} {}
     Bound(T lower_, T upper_) : lower{lower_}, upper{upper_} { assert(upper.val >= lower.val); }
     T Length() const { return upper - lower; }
 };

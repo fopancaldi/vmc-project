@@ -397,6 +397,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
                                      masses, pot, bounds, numEnergies, gen);
 }
 
+// FP TODO: derivativeStep is not in params documentation
 //! @brief Computes the energy with error, by numerically estimating the derivative and using either the
 //! Metropolis or the importance sampling algorithm, after finding the best parameter
 //! @param wavef The wavefunction
