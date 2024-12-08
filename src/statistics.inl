@@ -20,6 +20,7 @@
 
 // LF TODO: Plese put one @ command in doxygen on each line
 // For example, no two @see in the same line
+// Also, you do not need to put the @see test-stat.cpp
 
 // LF TODO: If you pass something by value, there is no need to declare it const
 
@@ -267,10 +268,15 @@ BlockingResult EvalBlocking(std::vector<LocEnAndPoss<D, N>> const &energies, Int
     return BlockingResult{blockSizes, means, stdDevs};
 }
 
+// LF TODO: Brief description is too long
+// Also, why are you talking about 'blockSizes' and 'means' here?
+// There is no mention of them inside the function
+
 //! @brief Takes the result of EvalBlocking and then looks for the plateau of standard deviation to get the
 //! best estimate of the error. "blockSizes" and "means" are not used by BlockingAnalysis, they are used
 //! for testing blocking method
-//! @see EvalBlocking   @see test-stat.cpp
+//! @see EvalBlocking
+//! @see test-stat.cpp
 //!
 //! @param energies The energies and positions, where only the energies will be used
 //! @return The best standard deviation
@@ -325,6 +331,8 @@ Energy BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntTyp
 //!
 //! Are wrappers for the core functions.
 //! @{
+
+// LF TODO: The name 'Statistics' does not make it clear that you are calculating the error on the average
 
 //! @brief Wrapper function called by the user, choose which statistical method to use
 //! @param energies The energies and positions, where only the energies will be used
