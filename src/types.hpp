@@ -9,12 +9,8 @@
 //! For example, the code forbids adding up an object of type 'Mass' with one of type 'Energy'.
 //!
 
-// TODO: average -> mean
-
 #ifndef VMCPROJECT_TYPES_HPP
 #define VMCPROJECT_TYPES_HPP
-
-// TODO: Use somewhere the Jackson-Freebeerg kinetic energy
 
 #include <array>
 #include <atomic>
@@ -215,13 +211,15 @@ inline EnSquared operator*(FPType lhs, EnSquared rhs) { return rhs * lhs; }
 inline EnSquared operator/(EnSquared lhs, FPType rhs) { return lhs /= rhs; }
 inline EnSquared operator*(Energy lhs, Energy rhs) { return EnSquared{lhs.val * rhs.val}; }
 inline Energy sqrt(EnSquared es) { return Energy{std::sqrt(es.val)}; }
+// LF TODO: Remove when you do not need this anymore (so when you are sure that all statistical methods that
+// before returned a 'PartialVMCResult' now retyurn an 'Energy')
 //! @brief Average of the energy and its error
 struct PartialVMCResult {
     Energy energy;
     Energy stdDev;
 };
 //! @brief Average of the energy and its error, and the best variational parameters
-template<VarParNum V>
+template <VarParNum V>
 struct VMCResult {
     Energy energy;
     Energy stdDev;
