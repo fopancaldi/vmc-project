@@ -305,10 +305,18 @@ Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPTyp
     for (ParticNum n = 0u; n != N; ++n) {
         for (Dimension d = 0u; d != D; ++d) {
             result.val += -std::pow(hbar, 2) / (2 * masses[n].val) *
-                          (wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
-                           2 * wavef(poss, params) +
-                           wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
-                          std::pow(derivativeStep, 2);
+                          (8 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{5 * derivativeStep}), params) -
+                           125 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{4 * derivativeStep}), params) +
+                           1000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{3 * derivativeStep}), params) -
+                           6000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * derivativeStep}), params) +
+                           42000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                           73766 * wavef(poss, params) +
+                           42000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params) -
+                           6000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * derivativeStep}), params) +
+                           1000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-3 * derivativeStep}), params) -
+                           125 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-4 * derivativeStep}), params) +
+                           8 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-5 * derivativeStep}), params)) /
+                          (25200 * std::pow(derivativeStep, 2) * wavef(poss, params));
         }
     }
     return result;

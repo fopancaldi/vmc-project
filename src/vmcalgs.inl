@@ -9,6 +9,9 @@
 //! @see vmchelpers.inl
 //!
 
+// LF TODO: Update the documentation to also include 'function' and 'numSamples' (which could be renamed
+// to boostrapSamples?)
+
 #ifndef VMCPROJECT_VMCALGS_INL
 #define VMCPROJECT_VMCALGS_INL
 
@@ -403,6 +406,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
 //! @param parBounds The interval in which the best parameters should be found
 //! @param useImpSamp Whether to use importance sampling as the update algorithm (the alternative is
 //! Metropolis)
+//! @param derivativeStep The step used in the numerical estimation of the derivative(s)
 //! @param masses The masses of the particles
 //! @param pot The potential
 //! @param coorBounds The integration region
