@@ -23,9 +23,9 @@ TEST_CASE("Testing the potential box") {
     SUBCASE("One particle in one dimension") {
         // l = length of the box
         vmcp::RandomGenerator rndGen{seed};
-        vmcp::Masses<1> const mInit = {vmcp::Mass{1.f}};
+        vmcp::Masses<1> const mInit{1.f};
         vmcp::FPType const lInit = 1;
-        vmcp::FPType const mStep = 0.2f;
+        vmcp::Mass const mStep{0.2f};
         vmcp::FPType const lStep = 0.2f;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const lIterations = iterations;
@@ -46,7 +46,7 @@ TEST_CASE("Testing the potential box") {
                 vmcp::FPType l;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
                     if (std::abs(x[0][0].val) <= l / 2) {
-                        return -(std::numbers::pi_v<vmcp::FPType> / l) *
+                        return -std::numbers::pi_v<vmcp::FPType> / l *
                                std::sin(std::numbers::pi_v<vmcp::FPType> * x[0][0].val / l);
                     } else {
                         return 0;
@@ -65,13 +65,12 @@ TEST_CASE("Testing the potential box") {
                 }
             };
             WavefBox wavefBox{lInit};
-            vmcp::Gradients<1, 1, FirstDerBox> gradBox{FirstDerBox{lInit}};
+            vmcp::Gradients<1, 1, FirstDerBox> gradBox{lInit};
             vmcp::Laplacians<1, LaplBox> laplBox{lInit};
 
             auto start = std::chrono::high_resolution_clock::now();
 
-            for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
-                 ++i, m_[0].val += mStep) {
+            for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations; ++i, m_[0] += mStep) {
                 for (auto [j, l_] = std::tuple{vmcp::IntType{0}, lInit}; j != lIterations; ++j, l_ += lStep) {
                     wavefBox.l = l_;
                     gradBox[0][0].l = l_;
@@ -82,8 +81,8 @@ TEST_CASE("Testing the potential box") {
                     vmcp::Energy const expectedEn{
                         1 / (2 * m_[0].val) *
                         std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
-                    std::string logMessage{"mass: " + std::to_string(m_[0].val) +
-                                           ", length: " + std::to_string(l_)};
+                    std::string const logMessage =
+                        "mass: " + std::to_string(m_[0].val) + ", length: " + std::to_string(l_);
                     vmcp::FPType const derivativeStep = coordBound[0].Length().val / derivativeStepDenom;
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {

@@ -21,7 +21,7 @@ TEST_CASE("Testing the harmonic oscillator") {
     file_stream.open(logFilePath, std::ios_base::app);
 
     SUBCASE("Two particles in one dimension") {
-        vmcp::CoordBounds<1> const coordBounds{vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
+        vmcp::CoordBounds<1> const coordBounds = {vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
         vmcp::RandomGenerator rndGen{seed};
         std::array<vmcp::Mass, 2> const mInit{1.f, 5.f};
         std::array<vmcp::FPType, 2> const omegaInit{1.f, 5.f};
@@ -113,35 +113,35 @@ TEST_CASE("Testing the harmonic oscillator") {
                     laplsHO[1].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * (omega_[0] + omega_[1]) / 2};
-                    std::string logMessage{
+                    std::string const logMessage =
                         "masses: " + std::to_string(m_[0].val) + ", " + std::to_string(m_[1].val) +
-                        ", ang. vels.: " + std::to_string(omega_[0]) + ", " + std::to_string(omega_[1])};
+                        ", ang. vels.: " + std::to_string(omega_[0]) + ", " + std::to_string(omega_[1]);
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {
-                        vmcp::VMCResult<0> const vmcrMetr = vmcp::VMCEnergy<1, 2, 0>(
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, laplsHO, m_, potHO, coordBounds, numEnergies,
                             vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                        CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
-                                          max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
                     SUBCASE("Metropolis algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO,
-                            coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO, coordBounds,
+                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
                     SUBCASE("Importance sampling algorithm, analytical derivative") {
-                        vmcp::VMCResult<0> const vmcrImpSamp = vmcp::VMCEnergy<1, 2, 0>(
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, gradsHO, laplsHO, m_, potHO, coordBounds,
                             numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                        CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
-                                          max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
                     /* SUBCASE("Importance sampling algorithm, numerical derivative") {
@@ -163,10 +163,6 @@ TEST_CASE("Testing the harmonic oscillator") {
         }
 
         SUBCASE("One variational parameter (using the same mass and ang. vel. for both particles)") {
-            PotHO potHO{mInitVP, omegaInitVP};
-            auto const wavefHO{[](vmcp::Positions<1, 2> x, vmcp::VarParams<1> alpha) {
-                return std::exp(-alpha[0].val * (x[0][0].val * x[0][0].val + x[1][0].val * x[1][0].val) / 2);
-            }};
             struct LaplHO {
                 vmcp::IntType particle;
                 LaplHO(vmcp::IntType particle_) : particle{particle_} {
@@ -180,7 +176,11 @@ TEST_CASE("Testing the harmonic oscillator") {
                                     2);
                 }
             };
-            vmcp::Laplacians<2, LaplHO> laplsHO{LaplHO{0}, LaplHO{1}};
+            PotHO potHO{mInitVP, omegaInitVP};
+            auto const wavefHO{[](vmcp::Positions<1, 2> x, vmcp::VarParams<1> alpha) {
+                return std::exp(-alpha[0].val * (x[0][0].val * x[0][0].val + x[1][0].val * x[1][0].val) / 2);
+            }};
+            vmcp::Laplacians<2, LaplHO> const laplsHO{LaplHO{0}, LaplHO{1}};
 
             auto start = std::chrono::high_resolution_clock::now();
 

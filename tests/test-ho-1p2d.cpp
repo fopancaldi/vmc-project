@@ -20,10 +20,10 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
     std::ofstream file_stream;
     file_stream.open(logFilePath, std::ios_base::app);
     SUBCASE("2D harmonic oscillator, one particle") {
-        vmcp::CoordBounds<2> const coordBounds{vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}},
-                                               vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
+        vmcp::CoordBounds<2> const coordBounds = {vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}},
+                                                  vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
         vmcp::RandomGenerator rndGen{seed};
-        vmcp::Masses<1> const mInit = {vmcp::Mass{1.f}};
+        vmcp::Masses<1> const mInit{1.f};
         vmcp::FPType const omegaInit = 1.f;
         vmcp::Mass const mStep{0.2f};
         vmcp::FPType const omegaStep = 0.2f;
@@ -33,7 +33,7 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
             vmcp::Mass m;
             vmcp::FPType omega;
             vmcp::FPType operator()(vmcp::Positions<2, 1> x) const {
-                return (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) * (m.val * omega * omega / 2);
+                return (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) * m.val * omega * omega / 2;
             }
         };
         vmcp::FPType const derivativeStep = coordBounds[0].Length().val / derivativeStepDenom;
@@ -43,8 +43,8 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                 vmcp::Mass m;
                 vmcp::FPType omega;
                 vmcp::FPType operator()(vmcp::Positions<2, 1> x, vmcp::VarParams<0>) const {
-                    return std::exp(-(std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) *
-                                    (m.val * omega / (2 * vmcp::hbar)));
+                    return std::exp(-(std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) * m.val * omega /
+                                    (2 * vmcp::hbar));
                 }
             };
             struct FirstDerHO {
@@ -58,25 +58,25 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                 }
                 vmcp::FPType operator()(vmcp::Positions<2, 1> x, vmcp::VarParams<0>) const {
                     vmcp::UIntType uDim = static_cast<vmcp::UIntType>(dimension);
-                    return (-x[0][uDim].val * (m.val * omega / (vmcp::hbar)) *
-                            (WavefHO{m, omega}(x, vmcp::VarParams<0>{})));
+                    return -x[0][uDim].val * m.val * omega / vmcp::hbar *
+                           WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
             struct LaplHO {
                 vmcp::Mass m;
                 vmcp::FPType omega;
                 vmcp::FPType operator()(vmcp::Positions<2, 1> x, vmcp::VarParams<0>) const {
-                    return ((m.val * omega / vmcp::hbar *
-                                 (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) -
-                             2)) *
-                           (m.val * omega / vmcp::hbar) * WavefHO{m, omega}(x, vmcp::VarParams<0>{});
+                    return (m.val * omega / vmcp::hbar *
+                                (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) -
+                            2) *
+                           m.val * omega / vmcp::hbar * WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
-            WavefHO wavefHO{mInit[0], omegaInit};
-            vmcp::Gradients<2, 1, FirstDerHO> gradHO{FirstDerHO{mInit[0], omegaInit, 0},
-                                                     FirstDerHO{mInit[0], omegaInit, 1}};
-            vmcp::Laplacians<1, LaplHO> laplHO{LaplHO{mInit[0], omegaInit}};
             PotHO potHO{mInit[0], omegaInit};
+            WavefHO wavefHO{mInit[0], omegaInit};
+            vmcp::Gradients<2, 1, FirstDerHO> gradHO = {FirstDerHO{mInit[0], omegaInit, 0},
+                                                        FirstDerHO{mInit[0], omegaInit, 1}};
+            vmcp::Laplacians<1, LaplHO> laplHO{mInit[0], omegaInit};
 
             auto start = std::chrono::high_resolution_clock::now();
 
@@ -94,8 +94,8 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                     laplHO[0].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
-                    std::string logMessage{"mass: " + std::to_string(m_[0].val) +
-                                           ", ang. vel.: " + std::to_string(omega_)};
+                    std::string const logMessage =
+                        "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_);
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 0>(
@@ -144,11 +144,10 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
 
         SUBCASE("One variational parameter") {
             PotHO potHO{mInit[0], omegaInit};
-
             auto const wavefHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
                 return std::exp(-alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) / 2);
             }};
-            std::array laplHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
+            std::array const laplHO{[](vmcp::Positions<2, 1> x, vmcp::VarParams<1> alpha) {
                 return (alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) - 2) *
                        alpha[0].val *
                        std::exp(-alpha[0].val * (std::pow(x[0][0].val, 2) + std::pow(x[0][1].val, 2)) / 2);
@@ -163,12 +162,12 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                      j += vpIterationsFactor, omega_ += omegaStep * vpIterationsFactor) {
                     potHO.omega = omega_;
 
-                    vmcp::VarParam bestParam{m_[0].val * omega_ / vmcp::hbar};
+                    vmcp::VarParam const bestParam{m_[0].val * omega_ / vmcp::hbar};
                     vmcp::ParamBounds<1> const parBound{
                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
-                    std::string logMessage{"mass: " + std::to_string(m_[0].val) +
-                                           ", ang. vel.: " + std::to_string(omega_)};
+                    std::string const logMessage{"mass: " + std::to_string(m_[0].val) +
+                                                 ", ang. vel.: " + std::to_string(omega_)};
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         auto startOnePar = std::chrono::high_resolution_clock::now();
