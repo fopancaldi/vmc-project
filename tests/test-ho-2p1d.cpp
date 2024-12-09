@@ -126,6 +126,15 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
+                    SUBCASE("Metropolis algorithm, numerical derivative") {
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
+                            wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO,
+                            coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
+                                      logMessage);
+                    }
                     SUBCASE("Importance sampling algorithm, analytical derivative") {
                         vmcp::VMCResult<0> const vmcrImpSamp = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, gradsHO, laplsHO, m_, potHO, coordBounds,
@@ -135,6 +144,15 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
+                    /* SUBCASE("Importance sampling algorithm, numerical derivative") {
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
+                            wavefHO, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
+                            coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
+                                      logMessage);
+                    } */
                 }
             }
 

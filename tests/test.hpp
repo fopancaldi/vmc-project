@@ -15,7 +15,7 @@ const std::string logFilePath = "../artifacts/test-log.txt";
 
 constexpr vmcp::IntType allowedStdDevs = 10;
 // Maximum allowed discrepancy between the computed energy and the expected energy
-constexpr vmcp::Energy vmcEnergyTolerance{0.5f};
+constexpr vmcp::Energy vmcEnergyTolerance{0.1f};
 // Should have been constexpr, we just used const since otherwise the intellisense complains
 // If the standard deviation is smaller than this, it is highly probable that numerical errors were
 // non-negligible
