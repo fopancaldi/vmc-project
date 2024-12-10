@@ -1,5 +1,6 @@
-build/
-html/
-debug/
+# generic artifacts (test logs, plots, etc.)
 artifacts/
-a.out
+# cmake build directory
+build/
+# doxygen documentation directory
+docs/
