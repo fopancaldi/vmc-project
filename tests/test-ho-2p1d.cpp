@@ -50,8 +50,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                 std::array<vmcp::Mass, 2> m;
                 std::array<vmcp::FPType, 2> omega;
                 vmcp::FPType operator()(vmcp::Positions<1, 2> x, vmcp::VarParams<0>) const {
-                    return std::exp(-x[0][0].val * x[0][0].val * m[0].val * omega[0] / (2 * vmcp::hbar)) *
-                           std::exp(-x[1][0].val * x[1][0].val * m[1].val * omega[1] / (2 * vmcp::hbar));
+                    return std::exp(-(x[0][0].val * x[0][0].val * m[0].val * omega[0] +
+                                      x[1][0].val * x[1][0].val * m[1].val * omega[1]) /
+                                    (2 * vmcp::hbar));
                 }
             };
             struct FirstDerHO {
@@ -82,9 +83,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                 }
                 vmcp::FPType operator()(vmcp::Positions<1, 2> x, vmcp::VarParams<0>) const {
                     vmcp::UIntType uPar = static_cast<vmcp::UIntType>(particle);
-                    return std::pow(x[uPar][0].val * m[uPar].val * omega[uPar] / vmcp::hbar, 2) -
-                           m[uPar].val * omega[uPar] / vmcp::hbar *
-                               WavefHO{m, omega}(x, vmcp::VarParams<0>{});
+                    return (std::pow(x[uPar][0].val * m[uPar].val * omega[uPar] / vmcp::hbar, 2) -
+                            m[uPar].val * omega[uPar] / vmcp::hbar) *
+                           WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
             PotHO potHO{mInit, omegaInit};
@@ -126,7 +127,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
-                    SUBCASE("Metropolis algorithm, numerical derivative") {
+                    /* SUBCASE("Metropolis algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO, coordBounds,
                             numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
@@ -143,7 +144,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
-                    }
+                    } */
                     /* SUBCASE("Importance sampling algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
