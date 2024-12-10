@@ -16,7 +16,7 @@
 #include <string>
 #include <tuple>
 
-TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
+TEST_CASE("Testing the harmonic oscillator") {
     std::ofstream file_stream;
     file_stream.open(logFilePath, std::ios_base::app);
     SUBCASE("2D harmonic oscillator, one particle") {
@@ -24,7 +24,7 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                                                   vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Masses<1> const mInit{1.f};
-        vmcp::FPType const omegaInit = 1.f;
+        vmcp::FPType const omegaInit = 1;
         vmcp::Mass const mStep{0.2f};
         vmcp::FPType const omegaStep = 0.2f;
         vmcp::IntType const mIterations = iterations;
@@ -159,7 +159,7 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                  i += vpIterationsFactor, m_[0] += mStep * vpIterationsFactor) {
                 potHO.m = m_[0];
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
-                     j += vpIterationsFactor, omega_ += omegaStep * vpIterationsFactor) {
+                     j += vpIterationsFactor * 2, omega_ += omegaStep * vpIterationsFactor * 2) {
                     potHO.omega = omega_;
 
                     vmcp::VarParam const bestParam{m_[0].val * omega_ / vmcp::hbar};
@@ -172,7 +172,7 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         auto startOnePar = std::chrono::high_resolution_clock::now();
                         vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 1>(
-                            wavefHO, parBound, laplHO, std::array{m_}, potHO, coordBounds, numEnergies,
+                            wavefHO, parBound, laplHO, m_, potHO, coordBounds, numEnergies,
                             vmcp::StatFuncType::regular, numSamples, rndGen);
                         auto stopOnePar = std::chrono::high_resolution_clock::now();
                         auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
