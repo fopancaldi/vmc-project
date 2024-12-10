@@ -21,18 +21,32 @@ To run a Dev container from VS Code, follow the [guide](https://code.visualstudi
 
 - To run the program:
     ```
-    cmake -S . -B build -D BUILD_MAIN=ON -D BUILD_TEST_HO=OFF -D BUILD_TEST_RAD=OFF -D BUILD_TEST_BOX=OFF -D BUILD_TEST_STAT=OFF
+    cmake -S . -B build -D BUILD_MAIN=ON -D CMAKE_BUILD_TYPE=Release
     cmake --build build
     build/main-vmc
     ```
 - To run the tests (and save a log)
     ```
-    cmake -S . -B build -D BUILD_MAIN=OFF -D BUILD_TEST_XXX=ON -D BUILD_TEST_YYY=OFF
+    cmake -S . -B build -D BUILDT_ALL=ON
     cmake --build build
     cd build
     make test
     ```
-    where `XXX` is one (or more) among `HO`, `RAD`, `BOX`, `STAT`. The tests not set to `ON` should be set to `OFF` (so their keywords should replace `YYY`), so that each variable `BUILD_TEST_KEYWORD` is defined.
+    To build a specific test(s) define, instead of `BUILDT_ALL`, the variable(s) `BUILDT_XXX`, where `XXX` is among:
+    - `HO_1P1D`
+    - `HO_1P2D`
+    - `HO_2P1D`
+    - `BOX_1P1D`
+    - `RAD_1P1D`
+    - `STAT`
+    
+    Multiple variables can be defined in the same command. Example:
+    ```
+    cmake -S . -B build -D BUILDT_HO_1P1D=ON BUILDT_HO_1P2D=ON BUILDT_HO_2P1D=ON
+    cmake --build build
+    cd build
+    make test
+    ```
 
 # Documentation
 
