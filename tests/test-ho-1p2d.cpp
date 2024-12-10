@@ -166,8 +166,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                     vmcp::ParamBounds<1> const parBound{
                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
-                    std::string const logMessage{"mass: " + std::to_string(m_[0].val) +
-                                                 ", ang. vel.: " + std::to_string(omega_)};
+                    std::string const logMessage =
+                        "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_);
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         auto startOnePar = std::chrono::high_resolution_clock::now();

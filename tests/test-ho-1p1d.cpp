@@ -58,8 +58,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                 vmcp::Mass m;
                 vmcp::FPType omega;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> x, vmcp::VarParams<0>) const {
-                    return std::pow(x[0][0].val * m.val * omega / vmcp::hbar, 2) -
-                           m.val * omega / vmcp::hbar * WavefHO{m, omega}(x, vmcp::VarParams<0>{});
+                    return (std::pow(x[0][0].val * m.val * omega / vmcp::hbar, 2) -
+                            m.val * omega / vmcp::hbar) *
+                           WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
             PotHO potHO{mInit[0], omegaInit};
@@ -76,8 +77,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                 laplHO[0].m = m_[0];
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
                      ++j, omega_ += omegaStep) {
-                    wavefHO.omega = omega_;
                     potHO.omega = omega_;
+                    wavefHO.omega = omega_;
+                    gradHO[0][0].omega = omega_;
                     laplHO[0].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
