@@ -127,7 +127,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
-                    /* SUBCASE("Metropolis algorithm, numerical derivative") {
+                    SUBCASE("Metropolis algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO, coordBounds,
                             numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
@@ -144,7 +144,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
-                    } */
+                    }
                     /* SUBCASE("Importance sampling algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
@@ -186,8 +186,8 @@ TEST_CASE("Testing the harmonic oscillator") {
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInitVP}; i != mIterations;
-                 i += vpIterationsFactor, m_[0] += mStepVP * vpIterationsFactor,
-                          m_[1] += mStepVP * vpIterationsFactor) {
+                 i += vpIterationsFactor * 2, m_[0] += mStepVP * vpIterationsFactor * 2,
+                          m_[1] += mStepVP * vpIterationsFactor * 2) {
                 potHO.m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInitVP}; j != omegaIterations;
                      j += vpIterationsFactor * 2, omega_[0] += omegaStepVP * vpIterationsFactor * 2,
