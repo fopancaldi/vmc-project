@@ -237,12 +237,12 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
         std::uniform_real_distribution<FPType> unif(0, 1);
         std::vector<VMCResult<V>> vmcResults(static_cast<long unsigned int>(numWalkers));
         std::generate_n(std::execution::par_unseq, vmcResults.begin(), numWalkers_gradDesc, [&]() {
-            unsigned long int seed;
+            unsigned long int seed_;
             {
                 std::lock_guard<std::mutex> l(m);
-                seed = gen();
+                seed_ = gen();
             }
-            RandomGenerator localGen{seed};
+            RandomGenerator localGen{seed_};
             VarParams<V> initialParams;
             for (VarParNum v = 0u; v != V; ++v) {
                 initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(localGen);

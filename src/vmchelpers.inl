@@ -66,10 +66,10 @@ Positions<D, N> FindPeak_(Wavefunction const &wavef, VarParams<V> params, Potent
     std::fill(result.begin(), result.end(), center);
     std::uniform_real_distribution<FPType> unif(0, 1);
     std::mutex m;
-    auto const indices = std::ranges::views::iota(0, numPoints);
+    auto const indices = std::ranges::views::iota(IntType{0}, numPoints);
     // FP TODO: Data race in unif(gen)
     // Maybe put another mutex? Deadlock risk?
-    std::for_each(std::execution::par, indices.begin(), indices.end(), [&](int) {
+    std::for_each(std::execution::par, indices.begin(), indices.end(), [&](IntType) {
         Positions<D, N> newPoss;
         for (Position<D> &p : newPoss) {
             std::transform(bounds.begin(), bounds.end(), p.begin(), [&unif, &gen](Bound<Coordinate> b) {
@@ -108,10 +108,10 @@ std::array<std::array<FPType, D>, N> DriftForceAnalytic_(Wavefunction const &wav
     std::array<std::array<FPType, D>, N> result;
 
     std::transform(std::execution::par_unseq, grads.begin(), grads.end(), result.begin(),
-                   [&poss, params](std::array<FPType, D> g) {
+                   [&wavef, &poss, params](Gradient<D, FirstDerivative> const &g) {
                        std::array<FPType, D> result_;
                        std::transform(g.begin(), g.end(), result_.begin(),
-                                      [&poss, params](FirstDerivative const &fd) {
+                                      [&wavef, &poss, params](FirstDerivative const &fd) {
                                           return 2 * fd(poss, params) / wavef(poss, params);
                                       });
                        return result_;
@@ -128,10 +128,10 @@ std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &wave
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
     std::array<std::array<FPType, D>, N> result;
-    auto const indices = std::ranges::views::iota(0u, N);
+    auto const indices = std::ranges::views::iota(VarParNum{0u}, N);
 
     std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
-                  [&wavef, &poss, params, derivativeStep](ParticNum n) {
+                  [&wavef, &poss, params, derivativeStep, &result](ParticNum n) {
                       for (Dimension d = 0u; d != D; ++d) {
                           result[n][d] =
                               (wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
@@ -308,7 +308,7 @@ Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPTyp
     std::mutex m;
     Energy result{pot(poss)};
 
-    auto const indices = std::ranges::views::iota(0u, N);
+    auto const indices = std::ranges::views::iota(VarParNum{0u}, N);
     std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](ParticNum n) {
         for (Dimension d = 0u; d != D; ++d) {
             Energy const temp = Energy{
