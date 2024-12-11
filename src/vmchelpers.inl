@@ -359,7 +359,7 @@ std::array<Energy, V> ReweightedEnergies_(Wavefunction const &wavef, VarParams<V
                               lep.localEn.val};
             });
         std::vector<FPType> denomAddends(oldLEPs.size());
-        std::transform(std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(),
+        std::transform(std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(), denomAddends.begin(),
                        [&wavef, newParams, oldParams](LocEnAndPoss<D, N> const &lep) {
                            return std::pow(wavef(lep.positions, newParams) / wavef(lep.positions, oldParams),
                                            2);
