@@ -228,20 +228,26 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
     assert(numWalkers > IntType{0});
 
-    if constexpr (V == VarParNum{0u}) {
+    if constexpr (V == VarParNum{0}) {
         VarParams<0u> const fakeParams{};
-        std::vector<LocEnAndPoss<D, N>> vmcLEPs = lepsCalc(fakeParams);
+        std::vector<LocEnAndPoss<D, N>> const vmcLEPs = lepsCalc(fakeParams);
         return VMCResult<0>{Mean(vmcLEPs), Statistics(vmcLEPs, function, numSamples, gen), VarParams<0>{}};
     } else {
-        // FP TODO: Data race unif(gen)
+        std::mutex m;
         std::uniform_real_distribution<FPType> unif(0, 1);
         std::vector<VMCResult<V>> vmcResults(static_cast<long unsigned int>(numWalkers));
         std::generate_n(std::execution::par_unseq, vmcResults.begin(), numWalkers_gradDesc, [&]() {
+            unsigned long int seed;
+            {
+                std::lock_guard<std::mutex> l(m);
+                seed = gen();
+            }
+            RandomGenerator localGen{seed};
             VarParams<V> initialParams;
             for (VarParNum v = 0u; v != V; ++v) {
-                initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(gen);
+                initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(localGen);
             }
-            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, numSamples, gen);
+            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, numSamples, localGen);
         });
 
         return *std::min_element(
