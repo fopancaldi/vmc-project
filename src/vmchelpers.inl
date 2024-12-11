@@ -124,21 +124,29 @@ std::array<std::array<FPType, D>, N> DriftForceAnalytic_(Wavefunction const &wav
 // Computes the drift force by numerically estimating the derivative of the wavefunction
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
 std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &wavef, VarParams<V> params,
-                                                        FPType derivativeStep, Positions<D, N> poss) {
+                                                        FPType step, Positions<D, N> poss) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
     std::array<std::array<FPType, D>, N> result;
     auto const indices = std::ranges::views::iota(VarParNum{0u}, N);
-
-    std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
-                  [&wavef, &poss, params, derivativeStep, &result](ParticNum n) {
-                      for (Dimension d = 0u; d != D; ++d) {
-                          result[n][d] =
-                              (wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
-                               wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
-                              (derivativeStep * wavef(poss, params));
-                      }
-                  });
+    std::for_each(
+        std::execution::par_unseq, indices.begin(), indices.end(),
+        [&wavef, &poss, params, step, &result](ParticNum n) {
+            for (Dimension d = 0u; d != D; ++d) {
+                // Numerical derivative correct up to O(step^9)
+                result[n][d] =
+                    2 *
+                    (FPType{1} / 280 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-4 * step}), params) +
+                     FPType{-4} / 105 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-3 * step}), params) +
+                     FPType{1} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * step}), params) +
+                     FPType{-4} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-step}), params) +
+                     FPType{4} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{step}), params) +
+                     FPType{-1} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * step}), params) +
+                     FPType{4} / 105 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{3 * step}), params) +
+                     FPType{-1} / 280 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{4 * step}), params)) /
+                    (step * wavef(poss, params));
+            }
+        });
 
     return result;
 }
@@ -294,33 +302,35 @@ Energy LocalEnergyAnalytic_(Wavefunction const &wavef, VarParams<V> params,
 //! @brief Computes the local energy by numerically estimating the derivative of the wavefunction
 //! @param wavef The wavefunction
 //! @param params The variational parameters
-//! @param derivativeStep The step used is the numerical estimation of the derivative
+//! @param step The step used is the numerical estimation of the derivative
 //! @param masses The masses of the particles
 //! @param pot The potential
 //! @param poss The positions of the particles
 //! @return The local energy
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPType derivativeStep,
-                           Masses<N> masses, Potential const &pot, Positions<D, N> poss) {
+Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPType step, Masses<N> masses,
+                           Potential const &pot, Positions<D, N> poss) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsPotential<D, N, Potential>());
 
-    std::mutex m;
     Energy result{pot(poss)};
-
+    std::mutex m;
     auto const indices = std::ranges::views::iota(VarParNum{0u}, N);
     std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](ParticNum n) {
         for (Dimension d = 0u; d != D; ++d) {
-            Energy const temp = Energy{
-                -hbar * hbar / (2 * masses[n].val) *
-                (FPType{1} / 90 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{3 * derivativeStep}), params) +
-                 FPType{-3} / 20 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * derivativeStep}), params) +
-                 FPType{3} / 2 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) +
-                 FPType{-49} / 18 * wavef(poss, params) +
-                 FPType{3} / 2 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params) +
-                 FPType{-3} / 20 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * derivativeStep}), params) +
-                 FPType{1} / 90 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-3 * derivativeStep}), params)) /
-                (std::pow(derivativeStep, 2) * wavef(poss, params))};
+            // Numerical derivative correct up to O(step^9)
+            Energy const temp =
+                Energy{-hbar * hbar / (2 * masses[n].val) *
+                       (FPType{-1} / 560 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-4 * step}), params) +
+                        FPType{8} / 315 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-3 * step}), params) +
+                        FPType{-1} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * step}), params) +
+                        FPType{8} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-step}), params) +
+                        FPType{-205} / 72 * wavef(poss, params) +
+                        FPType{8} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{step}), params) +
+                        FPType{-1} / 5 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * step}), params) +
+                        FPType{8} / 315 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{3 * step}), params) +
+                        FPType{-1} / 560 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{4 * step}), params)) /
+                       (std::pow(step, 2) * wavef(poss, params))};
 
             {
                 std::lock_guard<std::mutex> l(m);
