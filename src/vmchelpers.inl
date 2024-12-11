@@ -105,14 +105,17 @@ std::array<std::array<FPType, D>, N> DriftForceAnalytic_(Wavefunction const &wav
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
 
-    std::array<std::array<FPType, D>, N> gradsVal;
     std::array<std::array<FPType, D>, N> result;
-    for (ParticNum n = 0u; n != N; ++n) {
-        std::transform(grads[n].begin(), grads[n].end(), gradsVal[n].begin(),
-                       [&poss, params](FirstDerivative const &fd) { return fd(poss, params); });
-        std::transform(gradsVal[n].begin(), gradsVal[n].end(), result[n].begin(),
-                       [&wavef, &poss, params](FPType f) { return 2 * f / wavef(poss, params); });
-    }
+
+    std::transform(std::execution::par_unseq, grads.begin(), grads.end(), result.begin(),
+                   [&poss, params](std::array<FPType, D> g) {
+                       std::array<FPType, D> result_;
+                       std::transform(g.begin(), g.end(), result_.begin(),
+                                      [&poss, params](FirstDerivative const &fd) {
+                                          return 2 * fd(poss, params) / wavef(poss, params);
+                                      });
+                       return result_;
+                   });
 
     return result;
 }
@@ -124,16 +127,20 @@ std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &wave
                                                         FPType derivativeStep, Positions<D, N> poss) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
-    std::array<FPType, D> driftForce;
-    // FP TODO: Can you parallelize this?
-    for (ParticNum n = 0u; n != N; ++n) {
-        for (Dimension d = 0u; d != D; ++d) {
-            driftForce[n][d] = 2 *
-                               (wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
-                                wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
-                               (derivativeStep * wavef(poss, params));
-        }
-    }
+    std::array<std::array<FPType, D>, N> result;
+    auto const indices = std::ranges::views::iota(0u, N);
+
+    std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
+                  [&wavef, &poss, params, derivativeStep](ParticNum n) {
+                      for (Dimension d = 0u; d != D; ++d) {
+                          result[n][d] =
+                              (wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                               wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params)) /
+                              (derivativeStep * wavef(poss, params));
+                      }
+                  });
+
+    return result;
 }
 
 //! @}
@@ -278,12 +285,10 @@ Energy LocalEnergyAnalytic_(Wavefunction const &wavef, VarParams<V> params,
     static_assert(IsWavefunctionDerivative<D, N, V, Laplacian>());
     static_assert(IsPotential<D, N, Potential>());
 
-    FPType weightedLaplSum = 0;
-    // FP TODO: Bad indices, bad!
-    for (ParticNum n = 0u; n != N; ++n) {
-        weightedLaplSum += lapls[n](poss, params) / masses[n].val;
-    }
-    return Energy{-(hbar * hbar / 2) * (weightedLaplSum / wavef(poss, params)) + pot(poss)};
+    FPType const weightedLaplSum =
+        std::inner_product(lapls.begin(), lapls.end(), masses.begin(), FPType{0}, std::plus<>(),
+                           [&poss, params](Laplacian const &l, Mass m) { return l(poss, params) / m.val; });
+    return Energy{-hbar * hbar * weightedLaplSum / (2 * wavef(poss, params)) + pot(poss)};
 }
 
 //! @brief Computes the local energy by numerically estimating the derivative of the wavefunction
@@ -300,25 +305,28 @@ Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPTyp
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsPotential<D, N, Potential>());
 
+    std::mutex m;
     Energy result{pot(poss)};
-    // FP TODO: Can you parallelize this?
-    for (ParticNum n = 0u; n != N; ++n) {
+
+    auto const indices = std::ranges::views::iota(0u, N);
+    std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](ParticNum n) {
         for (Dimension d = 0u; d != D; ++d) {
-            result.val += -std::pow(hbar, 2) / (2 * masses[n].val) *
-                          (8 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{5 * derivativeStep}), params) -
-                           125 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{4 * derivativeStep}), params) +
-                           1000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{3 * derivativeStep}), params) -
-                           6000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * derivativeStep}), params) +
-                           42000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
-                           73766 * wavef(poss, params) +
-                           42000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params) -
-                           6000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * derivativeStep}), params) +
-                           1000 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-3 * derivativeStep}), params) -
-                           125 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-4 * derivativeStep}), params) +
-                           8 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-5 * derivativeStep}), params)) /
-                          (25200 * std::pow(derivativeStep, 2) * wavef(poss, params));
+            Energy const temp = Energy{
+                -hbar * hbar / (2 * masses[n].val) *
+                (-FPType{1} / 12 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * derivativeStep}), params) +
+                 FPType{4} / 3 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
+                 FPType{5} / 2 * wavef(poss, params) +
+                 FPType{4} / 3 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params) -
+                 FPType{1} / 12 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * derivativeStep}), params)) /
+                (std::pow(derivativeStep, 2) * wavef(poss, params))};
+
+            {
+                std::lock_guard<std::mutex> l(m);
+                result += temp;
+            }
         }
-    }
+    });
+
     return result;
 }
 
