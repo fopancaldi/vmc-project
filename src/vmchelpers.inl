@@ -346,30 +346,33 @@ std::array<Energy, V> ReweightedEnergies_(Wavefunction const &wavef, VarParams<V
                                           std::vector<LocEnAndPoss<D, N>> oldLEPs, FPType step) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
-    // FP TODO: can you use std::transform here?
+    // FP TODO: step -> VarParam?
     std::array<Energy, V> result;
-    for (UIntType v = 0u; v != V; ++v) {
+    std::generate_n(result.begin(), V, [&, v = VarParNum{0u}]() mutable {
         VarParams<V> newParams = oldParams;
-        newParams[v].val += step;
-        std::vector<Energy> reweightedLocalEnergies(oldLEPs.size());
+        newParams[v] += VarParam{step};
+        std::vector<Energy> reweightedLocEns(oldLEPs.size());
         std::transform(
-            std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(), reweightedLocalEnergies.begin(),
+            std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(), reweightedLocEns.begin(),
             [&wavef, newParams, oldParams](LocEnAndPoss<D, N> const &lep) {
                 return Energy{std::pow(wavef(lep.positions, newParams) / wavef(lep.positions, oldParams), 2) *
                               lep.localEn.val};
             });
+        std::vector<FPType> denomAddends(oldLEPs.size());
+        std::transform(std::execution::par_unseq, oldLEPs.begin(), oldLEPs.end(),
+                       [&wavef, newParams, oldParams](LocEnAndPoss<D, N> const &lep) {
+                           return std::pow(wavef(lep.positions, newParams) / wavef(lep.positions, oldParams),
+                                           2);
+                       });
 
-        FPType const numerator =
-            std::accumulate(reweightedLocalEnergies.begin(), reweightedLocalEnergies.end(), FPType{0},
-                            [](FPType f, Energy e) { return f + e.val; });
-        FPType const denominator = std::accumulate(
-            oldLEPs.begin(), oldLEPs.end(), FPType{0},
-            [&wavef, newParams, oldParams](FPType f, LocEnAndPoss<D, N> const &lep) {
-                return f + std::pow(wavef(lep.positions, newParams) / wavef(lep.positions, oldParams), 2);
-            });
+        Energy const num = std::reduce(std::execution::par_unseq, reweightedLocEns.begin(),
+                                       reweightedLocEns.end(), Energy{0}, std::plus<>());
+        FPType const den = std::reduce(std::execution::par_unseq, denomAddends.begin(), denomAddends.end(),
+                                       FPType{0}, std::plus<>());
 
-        result[v] = Energy{numerator / denominator};
-    }
+        ++v;
+        return num / den;
+    });
     return result;
 }
 
