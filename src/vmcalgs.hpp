@@ -77,8 +77,6 @@ constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = 1e-9f;
 //! @brief Number of independent gradient descents carried out simultaneously
 constexpr IntType numWalkers_gradDesc = 8;
-//! @brief Fraction of the current energy that can be gained at most in a gradient descent move
-constexpr FPType increaseFrac_gradDesc = 0.1f;
 // FP TODO: Rename this one, and document
 constexpr IntType stepDenom_vmcLEPs = 100;
 //! @brief Number of updates after which the sampled local energies are uncorrelated

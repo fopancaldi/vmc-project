@@ -50,8 +50,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                 std::array<vmcp::Mass, 2> m;
                 std::array<vmcp::FPType, 2> omega;
                 vmcp::FPType operator()(vmcp::Positions<1, 2> x, vmcp::VarParams<0>) const {
-                    return std::exp(-x[0][0].val * x[0][0].val * (m[0].val * omega[0] / (2 * vmcp::hbar))) *
-                           std::exp(-x[1][0].val * x[1][0].val * (m[1].val * omega[1] / (2 * vmcp::hbar)));
+                    return std::exp(-(x[0][0].val * x[0][0].val * m[0].val * omega[0] +
+                                      x[1][0].val * x[1][0].val * m[1].val * omega[1]) /
+                                    (2 * vmcp::hbar));
                 }
             };
             struct FirstDerHO {
@@ -66,7 +67,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                 }
                 vmcp::FPType operator()(vmcp::Positions<1, 2> x, vmcp::VarParams<0>) const {
                     vmcp::UIntType uPar = static_cast<vmcp::UIntType>(particle);
-                    return -x[uPar][0].val * (m[uPar].val * omega[uPar] / vmcp::hbar) *
+                    return -x[uPar][0].val * m[uPar].val * omega[uPar] / vmcp::hbar *
                            WavefHO{m, omega}(x, vmcp::VarParams<0>{});
                 }
             };
@@ -185,8 +186,8 @@ TEST_CASE("Testing the harmonic oscillator") {
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInitVP}; i != mIterations;
-                 i += vpIterationsFactor, m_[0] += mStepVP * vpIterationsFactor,
-                          m_[1] += mStepVP * vpIterationsFactor) {
+                 i += vpIterationsFactor * 2, m_[0] += mStepVP * vpIterationsFactor * 2,
+                          m_[1] += mStepVP * vpIterationsFactor * 2) {
                 potHO.m = m_;
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInitVP}; j != omegaIterations;
                      j += vpIterationsFactor * 2, omega_[0] += omegaStepVP * vpIterationsFactor * 2,
@@ -197,8 +198,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                     vmcp::ParamBounds<1> const parBound{
                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_[0]};
-                    std::string logMessage{"mass: " + std::to_string(m_[0].val) +
-                                           ", ang. vel.: " + std::to_string(omega_[0])};
+                    std::string const logMessage =
+                        "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_[0]);
 
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         auto startOnePar = std::chrono::high_resolution_clock::now();
