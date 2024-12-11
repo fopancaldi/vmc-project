@@ -313,11 +313,13 @@ Energy LocalEnergyNumeric_(Wavefunction const &wavef, VarParams<V> params, FPTyp
         for (Dimension d = 0u; d != D; ++d) {
             Energy const temp = Energy{
                 -hbar * hbar / (2 * masses[n].val) *
-                (-FPType{1} / 12 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * derivativeStep}), params) +
-                 FPType{4} / 3 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) -
-                 FPType{5} / 2 * wavef(poss, params) +
-                 FPType{4} / 3 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params) -
-                 FPType{1} / 12 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * derivativeStep}), params)) /
+                (FPType{1} / 90 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{3 * derivativeStep}), params) +
+                 FPType{-3} / 20 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{2 * derivativeStep}), params) +
+                 FPType{3} / 2 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{derivativeStep}), params) +
+                 FPType{-49} / 18 * wavef(poss, params) +
+                 FPType{3} / 2 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-derivativeStep}), params) +
+                 FPType{-3} / 20 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-2 * derivativeStep}), params) +
+                 FPType{1} / 90 * wavef(MoveBy_<D, N>(poss, d, n, Coordinate{-3 * derivativeStep}), params)) /
                 (std::pow(derivativeStep, 2) * wavef(poss, params))};
 
             {
