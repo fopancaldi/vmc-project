@@ -49,9 +49,7 @@ using UIntType = long unsigned int;
 static_assert(std::is_integral_v<UIntType>);
 static_assert(std::is_unsigned_v<UIntType>);
 //! @brief Random generator type
-//!
-//! Used instead of default_random_engine since that one is implementation-defined.
-using RandomGenerator = std::mt19937;
+using RandomGenerator = std::default_random_engine;
 
 //! @}
 

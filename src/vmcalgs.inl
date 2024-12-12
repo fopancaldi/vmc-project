@@ -9,6 +9,9 @@
 //! @see vmchelpers.inl
 //!
 
+// LF TODO: Update the documentation to also include 'function' and 'numSamples' (which could be renamed
+// to boostrapSamples?)
+
 #ifndef VMCPROJECT_VMCALGS_INL
 #define VMCPROJECT_VMCALGS_INL
 
@@ -150,60 +153,62 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
     // Use a gradient descent algorithm with termination condition: stop if the next step is too small
     // compared to the current parameters
     VMCResult<V> result;
-    Energy currentEnergy;
+    Energy currentEn;
     VarParams<V> currentParams = initialParams;
     FPType const initialParamsNorm = std::sqrt(
         std::inner_product(initialParams.begin(), initialParams.end(), initialParams.begin(), FPType{0},
                            std::plus<>(), [](VarParam v1, VarParam v2) { return v1.val * v2.val; }));
-    FPType gradientStep = initialParamsNorm / stepDenom_gradDesc;
+    FPType gradStep = initialParamsNorm / stepDenom_gradDesc;
+    std::array<FPType, V> oldMomentum;
+    std::fill_n(oldMomentum.begin(), V, FPType{0});
+
+    std::cout << std::setprecision(10);
 
     for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
         // The gradient descent should end in a reasonable time
         assert((i + 1) != maxLoops_gradDesc);
 
-        // Update energy and standard deviation
+        // Update the energy
         std::vector<LocEnAndPoss<D, N>> const currentLEPs = lepsCalc(currentParams);
-        currentEnergy = Mean(currentLEPs);
+        currentEn = Mean(currentLEPs);
 
-        // Compute the gradient by using reweighting
+        // Compute the gradient by using reweighting and update the momentum
         std::array<Energy, V> energiesIncreasedParam =
-            ReweightedEnergies_<D, N, V>(wavef, currentParams, currentLEPs, gradientStep);
+            ReweightedEnergies_<D, N, V>(wavef, currentParams, currentLEPs, gradStep);
         std::array<Energy, V> energiesDecreasedParam =
-            ReweightedEnergies_<D, N, V>(wavef, currentParams, currentLEPs, -gradientStep);
-        std::array<FPType, V> gradient;
-        for (VarParNum v = 0u; v != V; ++v) {
-            gradient[v] =
-                (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) / (2 * gradientStep);
-            assert(!std::isnan(gradient[v]));
-        }
+            ReweightedEnergies_<D, N, V>(wavef, currentParams, currentLEPs, -gradStep);
+        std::array<FPType, V> currentMomentum;
+        std::generate_n(currentMomentum.begin(), V,
+                        [v = VarParNum{0}, &energiesIncreasedParam, &energiesDecreasedParam, &oldMomentum,
+                         gradStep]() mutable {
+                            FPType const res =
+                                (-(energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) /
+                                     (2 * gradStep) +
+                                 oldMomentum[v]) /
+                                2;
+                            assert(!std::isnan(res));
+                            ++v;
+                            return res;
+                        });
 
         // Set as next step used to compute the gradient the current gradient norm, which is also the size of
         // the step if that step is accepted
         FPType const currentParamsNorm = std::sqrt(
             std::inner_product(currentParams.begin(), currentParams.end(), currentParams.begin(), FPType{0},
                                std::plus<>(), [](VarParam v1, VarParam v2) { return v1.val * v2.val; }));
-        gradientStep =
-            std::sqrt(std::inner_product(gradient.begin(), gradient.end(), gradient.begin(), FPType{0}));
-        if ((gradientStep / currentParamsNorm) < stoppingThreshold_gradDesc) {
-            result.energy = currentEnergy;
+        gradStep = std::sqrt(std::inner_product(currentMomentum.begin(), currentMomentum.end(),
+                                                currentMomentum.begin(), FPType{0}));
+
+        // Check the termination condition
+        if (gradStep / currentParamsNorm < stoppingThreshold_gradDesc) {
+            result.energy = currentEn;
             result.stdDev = Statistics(currentLEPs, function, numSamples, gen);
             result.bestParams = currentParams;
             break;
         } else {
-            // Move in parameter space: try smaller and smaller steps until the new parameters produce a VMC
-            // energy not much larger than the current one
-            FPType gradMultiplier = 2;
-            VarParams<V> newParams;
-            Energy newEnergy;
-            do {
-                gradMultiplier /= 2;
-                for (VarParNum v = 0u; v != V; ++v) {
-                    newParams[v].val = currentParams[v].val - gradMultiplier * gradient[v];
-                }
-                newEnergy = Mean(lepsCalc(newParams));
-
-            } while (newEnergy > (currentEnergy + increaseFrac_gradDesc * abs(currentEnergy)));
-            currentParams = newParams;
+            std::transform(currentParams.begin(), currentParams.end(), currentMomentum.begin(),
+                           currentParams.begin(), [](VarParam cp, FPType cm) { return cp + VarParam{cm}; });
+            oldMomentum = currentMomentum;
         }
     }
 
@@ -230,20 +235,26 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
     assert(numWalkers > IntType{0});
 
-    if constexpr (V == VarParNum{0u}) {
+    if constexpr (V == VarParNum{0}) {
         VarParams<0u> const fakeParams{};
-        std::vector<LocEnAndPoss<D, N>> vmcLEPs = lepsCalc(fakeParams);
+        std::vector<LocEnAndPoss<D, N>> const vmcLEPs = lepsCalc(fakeParams);
         return VMCResult<0>{Mean(vmcLEPs), Statistics(vmcLEPs, function, numSamples, gen), VarParams<0>{}};
     } else {
-        // FP TODO: Data race unif(gen)
+        std::mutex m;
         std::uniform_real_distribution<FPType> unif(0, 1);
         std::vector<VMCResult<V>> vmcResults(static_cast<long unsigned int>(numWalkers));
         std::generate_n(std::execution::par_unseq, vmcResults.begin(), numWalkers_gradDesc, [&]() {
+            unsigned long int seed_;
+            {
+                std::lock_guard<std::mutex> l(m);
+                seed_ = gen();
+            }
+            RandomGenerator localGen{seed_};
             VarParams<V> initialParams;
             for (VarParNum v = 0u; v != V; ++v) {
-                initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(gen);
+                initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(localGen);
             }
-            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, numSamples, gen);
+            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, numSamples, localGen);
         });
 
         return *std::min_element(
@@ -411,6 +422,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
 //! @param parBounds The interval in which the best parameters should be found
 //! @param useImpSamp Whether to use importance sampling as the update algorithm (the alternative is
 //! Metropolis)
+//! @param derivativeStep The step used in the numerical estimation of the derivative(s)
 //! @param masses The masses of the particles
 //! @param pot The potential
 //! @param coorBounds The integration region
