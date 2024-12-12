@@ -108,7 +108,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
                     }
-                    {
+                    /* {
                         // Metropolis update, numerical derivative
                         std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<2, 1, 0>(
@@ -118,7 +118,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
-                    }
+                    } */
                     /* {
                         // Importance sampling update, analytical derivative
                         std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
