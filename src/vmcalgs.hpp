@@ -56,11 +56,8 @@ VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masse
 
 //! @brief Reduced Planck constant
 constexpr FPType hbar = 1;
-//! @brief Number of randomly chosen points in the integration region where the potential is computed
-//! @see FindPeak
-constexpr IntType points_peakSearch = 100;
 //! @brief Minimal value of the wavefunction to accept the point as the new highest point of the potential
-//! @see FindPeak
+//! @see FindStartPoint
 //!
 //! Minimal value of the wavefunction to accept the point as the new peak of the potential.
 //! Aviods situations where the wavefunction at the peak is 'nan', which breaks the update algorithms.

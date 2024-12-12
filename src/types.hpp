@@ -89,7 +89,10 @@ struct Coordinate {
 inline Coordinate operator+(Coordinate lhs, Coordinate rhs) { return lhs += rhs; }
 inline Coordinate operator-(Coordinate lhs, Coordinate rhs) { return lhs -= rhs; }
 inline Coordinate operator*(Coordinate lhs, FPType rhs) { return lhs *= rhs; }
+inline Coordinate operator*(FPType lhs, Coordinate rhs) { return rhs * lhs; }
 inline Coordinate operator/(Coordinate lhs, FPType rhs) { return lhs /= rhs; }
+inline bool operator<(Coordinate lhs, Coordinate rhs) { return lhs.val < rhs.val; }
+inline bool operator>(Coordinate lhs, Coordinate rhs) { return lhs.val > rhs.val; }
 //! @brief Position of one particle in D dimensions
 template <Dimension D>
 using Position = std::array<Coordinate, D>;

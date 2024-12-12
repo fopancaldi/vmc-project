@@ -48,12 +48,11 @@ namespace vmcp {
 //!
 //! Is the most important function of the library, since is the one which actually does the work.
 //! Starts from a point where the potential is sufficiently large, to quickly forget about the initial
-//! conditions. Does some updates to move away from the peak, then starts computing the local energies. In
-//! between two evaluations of the local energy, some updates are done to avoid correlations. Adjusts the step
-//! size on the fly to best match the target acceptance rate.
-//! Depending on 'useAnalytical' and 'useImpSamp', some parameters are unused.
-//! To avoid having the user supply some parameters he does not care about, wrappers that only ask for the
-//! necessary ones are provided.
+//! conditions. Does some updates to move away from the starting point, then starts computing the local
+//! energies. In between two evaluations of the local energy, some updates are done to avoid correlations.
+//! Adjusts the step size on the fly to best match the target acceptance rate. Depending on 'useAnalytical'
+//! and 'useImpSamp', some parameters are unused. To avoid having the user supply some parameters he does not
+//! care about, wrappers that only ask for the necessary ones are provided.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
 std::vector<LocEnAndPoss<D, N>>
@@ -68,7 +67,9 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
     assert(numEnergies > 0);
 
     // Find a good starting point, in the sense that it's easy to move away from
-    Positions<D, N> const peak = FindPeak_<D, N>(wavef, params, pot, bounds, points_peakSearch, gen);
+    std::vector<Positions<D, N>> startPoints(static_cast<long unsigned int>(numWalkers_gradDesc));
+    std::generate_n(std::execution::par_unseq, startPoints.begin(), numWalkers_gradDesc,
+                    [&]() { return FindStartPoint_<D, N>(wavef, params, bounds, gen); });
 
     // Choose the initial step
     Bound const smallestBound =
@@ -78,7 +79,11 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
     FPType step = smallestBound.Length().val / stepDenom_vmcLEPs;
 
     // Save the energies to be averaged
-    Positions<D, N> poss = peak;
+    Positions<D, N> poss = *std::max_element(startPoints.begin(), startPoints.end(),
+                                             [&wavef, &params](Positions<D, N> p1, Positions<D, N> p2) {
+                                                 return wavef(p1, params) > wavef(p2, params);
+                                             });
+    ;
     std::function<Energy()> localEnergy;
     if (useAnalytical) {
         localEnergy = std::function<Energy()>{
@@ -89,8 +94,10 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
     }
     std::function<IntType()> update;
     if (useImpSamp) {
-        update = std::function<IntType()>{
-            [&]() { return ImportanceSamplingUpdate_<D, N>(wavef, params, grads, masses, poss, gen); }};
+        update = std::function<IntType()>{[&]() {
+            return ImportanceSamplingUpdate_<D, N>(wavef, params, useAnalytical, derivativeStep, grads,
+                                                   masses, poss, gen);
+        }};
     } else {
         update = std::function<IntType()>{
             [&]() { return MetropolisUpdate_<D, N>(wavef, params, poss, step, gen); }};
@@ -98,7 +105,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
 
     std::vector<LocEnAndPoss<D, N>> result;
     result.reserve(static_cast<long unsigned int>(numEnergies));
-    // Move away from the peak, in order to forget the dependence on the initial conditions
+    // Move away from the starting ponit, in order to forget the dependence on the initial conditions
     for (IntType i = 0; i != movesForgetICs_vmcLEPs; ++i) {
         update();
     }

@@ -7,27 +7,33 @@
 //!
 
 #include "main.hpp"
+#include <chrono>
+#include <thread>
 
 // Constant Parameters
 constexpr vmcp::FPType betaInit = vmcp::FPType{2.82843f};
-// LF TODO: I put gammaInit to stick with Jensen, but does it actually maek sense 2 objects that are the
-// same?
 constexpr vmcp::FPType gammaInit = vmcp::FPType{2.82843f};
 constexpr vmcp::FPType aInit = vmcp::FPType{1.f};
 constexpr vmcp::FPType omegaInit{1.f};
-constexpr Masses<1> mInit{1.f};
+constexpr vmcp::Masses<1> mInit{1.f};
 
 constexpr vmcp::FPType derivativeStep{0.01f};
-constexpr vmcp::IntType numEnergies = 1 << 9;
+constexpr vmcp::IntType numEnergies = 1 << 7;
 constexpr vmcp::IntType numSamples = 1000;
 
-using namespace vmcp;
+vmcp::RandomGenerator gen{(std::random_device())()};
 
-template <Dimension D, ParticNum N>
-void ComputeEnergies(StatFuncType F, bool interactions) {
-    CoordBounds<D> const coordBounds = MakeCoordBounds<D>(Coordinate{-100}, Coordinate{100});
+template <vmcp::Dimension D, vmcp::ParticNum N>
+void HO(vmcp::StatFuncType F, bool interactions) {
+    using namespace vmcp;
+
+    // FIRST PART
+    // Computing energies and standard deviations
+
+    CoordBounds<D> const coordBounds = MakeCoordBounds<D>(Coordinate{-10}, Coordinate{10});
 
     struct PotHO {
+        // TODO: masses N
         Masses<1> m;
         FPType omega;
         FPType gamma;
@@ -42,15 +48,15 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
 
             FPType potential =
                 std::transform_reduce(begin, end, FPType{0.f}, std::plus<>(),
-                                      [&D_, &omega_, &m_, &gamma_, &begin](FPType val) {
+                                      [&D_, &omega_, &m_, &gamma_, &begin](FPType &val) {
                                           // Compute the index of the current element
                                           auto index = &val - begin;
                                           // Check if it is in the last dimension
                                           bool isLastDimension = ((index + 1) % D_ == 0) && (D_ != 1);
                                           return val * val *
                                                  (isLastDimension ? gamma_ * gamma_ : omega_ * omega_ * m_);
-                                      }) *
-                (1 / 2);
+                                      }) /
+                2;
             assert(!std::isnan(potential));
 
             return potential;
@@ -65,25 +71,23 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
         bool interactions;
 
         FPType operator()(Positions<D, N> x, VarParams<0>) const {
-            /* std::cout << x[0][0].val << " ," << x[0][1].val << " ," << x[0][2].val << "\n";
-             std::cout << x[1][0].val << " ," << x[1][1].val << " ," << x[1][2].val << "\n";*/
-            // Harmonic oscillator term
+            //   Harmonic oscillator term
             FPType *begin = &x[0][0].val;
             FPType *end = &x[0][0].val + N * D;
             FPType expArg = std::transform_reduce(
-                begin, end, FPType{0.f}, std::plus<>(), [&beta = beta, begin](FPType val) {
+                begin, end, FPType{0.f}, std::plus<>(), [&beta = beta, &begin](FPType &val) {
                     auto index = &val - begin;
-                    bool isLastDimension = ((index + 1) % D == 0) && (D != 1);
+                    bool isLastDimension = ((static_cast<UIntType>(index) + 1u) % D == 0) && (D != 1);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
                     return val * val * (isLastDimension ? beta : 1);
                 });
 
             // Interaction term
             FPType interactionTerm = FPType{0.f};
             if (interactions) {
-                for (UIntType i = 0; i < N - 1; ++i) {
-                    for (UIntType j = i + 1; j < N; ++j) {
+                for (ParticNum i = 0u; i < N - 1; ++i) {
+                    for (ParticNum j = i + 1u; j < N; ++j) {
                         FPType r_ij = Distance(x[i], x[j]);
-                        assert(r_ij != FPType{0.f});
                         if (r_ij > a)
                             interactionTerm += std::log(FPType{1.f} - a / r_ij);
                         else {
@@ -126,12 +130,14 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
             // Interaction first derivative term term
             FPType firstDerInt{0.f};
             if (interactions) {
-                for (UIntType n = 0; n < N; ++n) {
+                for (ParticNum n = 0u; n < N; ++n) {
                     if (n == particle) {
                         continue;
                     }
                     FPType r_pn = Distance(x[particle], x[n]);
-                    assert(r_pn != FPType{0.f});
+                    if (r_pn <= a) {
+                        return FPType{0.f};
+                    }
                     FPType u_pnPrime = a / (r_pn * (r_pn - a));
                     firstDerInt += (x[particle][dimension].val - x[n][dimension].val) * (u_pnPrime) / r_pn;
                 }
@@ -159,8 +165,6 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
         LaplHO() : alpha{}, beta{}, a{}, interactions{}, particle{} {}
 
         FPType operator()(Positions<D, N> x, VarParams<0>) const {
-            /*std::cout << x[0][0].val << " ," << x[0][1].val << " ," << x[0][2].val << " ," << x[1][0].val
-                      << " ," << x[1][1].val << "\n";*/
             UIntType uPar = particle;
             FPType *begin = &x[uPar][0].val;
             FPType *end = &x[uPar][0].val + (D - 1);
@@ -169,14 +173,17 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
             FPType nonIntLapl =
                 (std::pow(2 * alpha, 2) *
                      std::transform_reduce(begin, end, FPType{0.f}, std::plus<>(),
-                                           [&D_, &beta = beta, begin = &x[uPar][0].val](FPType val) {
+                                           [&D_, &beta = beta, &begin](FPType &val) {
                                                // Compute the index of the current element
                                                auto index = &val - begin;
+
                                                // Check if it is in the last dimension
-                                               bool isLastDimension = ((index + 1) % D_ == 0) && (D_ != 1);
+                                               bool isLastDimension =
+                                                   ((static_cast<UIntType>(index) + 1u) % D_ == 0) &&
+                                                   (D_ != 1);
                                                return val * val * (isLastDimension ? beta * beta : 1);
                                            }) -
-                 2 * D * alpha) *
+                 2 * alpha * (D == 1 ? 1 : D - 1 + beta)) *
                 WavefHO{alpha, beta, a, false}(x, VarParams<0>{});
             assert(!std::isnan(nonIntLapl));
 
@@ -184,16 +191,19 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
                 FPType pureIntTerms{0.f};
                 std::array<FPType, D> arrInt = {FPType{0.f}};
 
-                for (UIntType n = 0; n < N; ++n) {
+                for (ParticNum n = 0u; n < N; ++n) {
                     if (n == particle) {
                         continue;
                     }
                     FPType r_pn = Distance(x[particle], x[n]);
-                    assert(r_pn != FPType{0.f});
+                    if (r_pn <= a) {
+                        return FPType{0.f};
+                    }
+
                     FPType u_pnPrime = a / (r_pn * (r_pn - a));
                     FPType u_pnPrime2 = (a * a - 2 * a * r_pn) / std::pow(r_pn * (r_pn - a), 2);
 
-                    for (UIntType d = 0; d < D; ++d) {
+                    for (Dimension d = 0u; d < D; ++d) {
                         arrInt[d] += (x[particle][d].val - x[n][d].val) * u_pnPrime / r_pn;
                     }
 
@@ -210,13 +220,12 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
                            WavefHO{alpha, beta, a, false}(x, VarParams<0>{});
                     ++d;
                 });
-                for (UIntType n = 0; n < N; ++n) {
+                for (ParticNum n = 0u; n < N; ++n) {
                     if (n == particle) {
                         continue;
                     }
-                    std::generate_n(gradInt.begin(), D, [&, d = 0]() mutable {
+                    std::generate_n(gradInt.begin(), D, [&, d = 0u]() mutable {
                         FPType r_pn = Distance(x[particle], x[n]);
-                        assert(r_pn != FPType{0.f});
                         FPType u_pnPrime = a / (r_pn * (r_pn - a));
                         return (x[particle][d].val - x[n][d].val) * u_pnPrime / r_pn;
                         ++d;
@@ -245,6 +254,11 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
         return FPType{0.1f} + static_cast<FPType>(++i) * FPType{0.05f};
     });
 
+    // Exact energies vector (all the elements equal the exact energy value for the ground state)
+    vmcp::Energy const exactEn{D * N * hbar * omegaInit / 2};
+    std::vector<FPType> exactEns;
+    std::generate_n(std::back_inserter(exactEns), 100, [exactEn]() -> FPType { return exactEn.val; });
+
     // Analytic vectors
     std::vector<FPType> energyValsMetrAn;
     std::vector<FPType> energyValsImpSampAn;
@@ -257,22 +271,19 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
     std::vector<FPType> errorValsMetrNum;
     std::vector<FPType> errorValsImpSampNum;
 
-    vmcp::Energy const exactEn{D * N * hbar * omegaInit / 2};
-    std::vector<FPType> exactEns;
-    std::generate_n(std::back_inserter(exactEns), 100, [exactEn]() -> FPType { return exactEn.val; });
-
+    // Perform Monte Carlo Method
     for (FPType alphaVal : alphaVals) {
         PotHO potHO{mInit, omegaInit, gammaInit};
         WavefHO wavefHO{alphaVal, betaInit, aInit, interactions};
         vmcp::Gradients<D, N, FirstDerHO> gradsHO;
-        for (UIntType n = 0; n < N; ++n) {
-            for (UIntType d = 0; d < D; ++d) {
+        for (ParticNum n = 0u; n < N; ++n) {
+            for (Dimension d = 0u; d < D; ++d) {
                 gradsHO[n][d] = FirstDerHO{alphaVal, betaInit, aInit, interactions, d, n};
             }
         }
         std::array<LaplHO, N> laplHO;
         std::generate(laplHO.begin(), laplHO.end(),
-                      [counter = UIntType{0}, &alphaVal, &interactions]() mutable {
+                      [counter = UIntType{0}, &alphaVal, interactions]() mutable {
                           return LaplHO{alphaVal, betaInit, aInit, interactions, counter++};
                       });
 
@@ -287,7 +298,7 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
                                numEnergies, F, numSamples, gen);
         std::cout << "ImpSamp:\n"
                   << "alpha: " << std::setprecision(3) << alphaVal << "\tenergy: " << std::setprecision(5)
-                  << vmcrMetrAn.energy.val << " +/- " << vmcrMetrAn.stdDev.val << '\n';
+                  << vmcrImpSampAn.energy.val << " +/- " << vmcrImpSampAn.stdDev.val << '\n';
 
         energyValsMetrAn.push_back(vmcrMetrAn.energy.val);
         energyValsImpSampAn.push_back(vmcrImpSampAn.energy.val);
@@ -295,10 +306,10 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
         errorValsImpSampAn.push_back(vmcrImpSampAn.stdDev.val);
 
         // Numeric
-        VMCResult const vmcrMetrNum =
+        VMCResult<0> const vmcrMetrNum =
             VMCEnergy<D, N, 0>(wavefHO, ParamBounds<0>{}, false, derivativeStep, mass, potHO, coordBounds,
                                numEnergies, F, numSamples, gen);
-        VMCResult const vmcrImpSampNum =
+        VMCResult<0> const vmcrImpSampNum =
             VMCEnergy<D, N, 0>(wavefHO, ParamBounds<0>{}, true, derivativeStep, mass, potHO, coordBounds,
                                numEnergies, F, numSamples, gen);
 
@@ -308,10 +319,15 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
         errorValsImpSampNum.push_back(vmcrImpSampNum.stdDev.val);
     }
 
+    // SECOND PART
+    // Plotting the energies
+
     // Construct file paths
-    std::string folder = "artifacts/D=" + std::to_string(D) + "_N=" + std::to_string(N);
+    std::string folder = "./artifacts/D=" + std::to_string(D) + "_N=" + std::to_string(N);
     std::string metrAnFile = folder + "/plot_Metr_An.pdf";
     std::string impSampAnFile = folder + "/plot_ImpSamp_An.pdf";
+    std::string metrNumFile = folder + "/plot_Metr_Num.pdf";
+    std::string impSampNumFile = folder + "/plot_ImpSamp_Num.pdf";
 
     std::filesystem::create_directories(folder);
 
@@ -327,9 +343,6 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
     sciplot::Canvas canvasMetrNum = DrawGraph<D, N>(alphaVals, energyValsMetrNum, errorValsMetrNum, exactEns);
     sciplot::Canvas canvasImpSampNum =
         DrawGraph<D, N>(alphaVals, energyValsImpSampNum, errorValsImpSampNum, exactEns);
-    // Construct file paths
-    std::string metrNumFile = folder + "/plot_Metr_Num.pdf";
-    std::string impSampNumFile = folder + "/plot_ImpSamp_Num.pdf";
 
     canvasMetrAn.save(metrNumFile);
     canvasImpSampAn.save(impSampNumFile);
@@ -337,8 +350,8 @@ void ComputeEnergies(StatFuncType F, bool interactions) {
 
 int main() {
     bool interactions = false;
-    StatFuncType statFunc = StatFuncType::regular;
-    ComputeEnergies<3, 10>(statFunc, interactions);
-    // ComputeEnergies<3, 50>(statFunc, interactions);
-    // ComputeEnergies<3, 100>(statFunc, interactions);
+    vmcp::StatFuncType statFunc = vmcp::StatFuncType::regular;
+    HO<1, 1>(statFunc, interactions);
+    // HO<3, 50>(statFunc, interactions);
+    // HO<3, 100>(statFunc, interactions);
 }

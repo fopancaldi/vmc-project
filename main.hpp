@@ -3,7 +3,7 @@
 //! @brief Helper functions for main
 //! @authors Lorenzo Fabbri, Francesco Orso Pancaldi
 //!
-//! Contains the definitions of the helper functions used inside ComputeEnergies in main.cpp
+//! Contains the definitions of the helper functions used inside HO in main.cpp
 //! @see main.cpp
 //!
 
@@ -21,7 +21,9 @@
 
 namespace vmcp {
 
-RandomGenerator gen{(std::random_device())()};
+//! @defgroup Helper functions for computing the energies
+//! @brief Helper methods called in the first section of HO method
+//! @{
 
 //! @brief Avoids manually repeating the Bound initialization by generating directly an array of bounds of
 //! dimension D
@@ -37,22 +39,39 @@ CoordBounds<D> MakeCoordBounds(Coordinate lower, Coordinate upper) {
     return coordBounds;
 }
 
+//! @brief Computes Eucledian distance between two particles
+//! @param x The first particle
+//! @param y The second particle
+//! @return The distance
 template <Dimension D>
 FPType Distance(Position<D> x, Position<D> y) {
     FPType sqrdDist =
-        std::transform_reduce(x.begin(), x.end(), y.begin(), FPType(0.f), std::plus<FPType>(),
-                              [](Coordinate &a, Coordinate &b) { return (a.val - b.val) * (a.val - b.val); });
-    assert(sqrdDist >= FPType{0.f});
+        std::inner_product(x.begin(), x.end(), y.begin(), FPType{0}, std::plus<>(),
+                           [](Coordinate &a, Coordinate &b) { return (a.val - b.val) * (a.val - b.val); });
+    assert(sqrdDist >= FPType{0});
     return std::sqrt(sqrdDist);
 }
 
+//! @}
+
+//! @defgroup Helper functions for plotting the energies
+//! @brief Helper methods called in the second section of HO method
+//! @{
+
+//! @brief Creates a 2 dimensional graph to plot the energies as a function of alpha and the exact ground
+//! state energy
+//! @param alphaVals The values of alpha
+//! @param energyVals The energies
+//! @param errorVals The standard deviations of energies
+//! @param exactEns The exact ground state energies (of course it is the same value for each alpha)
+//! @return The Canvas containing the plot
 template <Dimension D, ParticNum N>
 sciplot::Canvas DrawGraph(std::vector<FPType> const &alphaVals, std::vector<FPType> const &energyVals,
                           std::vector<FPType> const &errorVals, std::vector<FPType> const &exactEns) {
     sciplot::Plot2D plot;
 
-    plot.fontName("Palatino");
-    plot.fontSize(14);
+    plot.fontName("Palatino").fontSize(14);
+    plot.yrange(0.f, 1.5);
 
     plot.legend().atTop().fontSize(14).displayHorizontal().displayExpandWidthBy(2);
     plot.xlabel("alpha");
@@ -77,6 +96,8 @@ sciplot::Canvas DrawGraph(std::vector<FPType> const &alphaVals, std::vector<FPTy
     sciplot::Canvas canvas = {{fig}};
     return canvas;
 }
+
+//! @}
 
 } // namespace vmcp
 
