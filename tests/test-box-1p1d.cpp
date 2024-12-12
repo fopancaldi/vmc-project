@@ -81,46 +81,54 @@ TEST_CASE("Testing the potential box") {
                     vmcp::Energy const expectedEn{
                         1 / (2 * m_[0].val) *
                         std::pow(vmcp::hbar * std::numbers::pi_v<vmcp::FPType> / l_, 2)};
-                    std::string const logMessage =
+                    std::string const genericLogMes =
                         "mass: " + std::to_string(m_[0].val) + ", length: " + std::to_string(l_);
                     vmcp::FPType const derivativeStep = coordBound[0].Length().val / derivativeStepDenom;
 
-                    SUBCASE("Metropolis algorithm, analytical derivative") {
+                    {
+                        // Metropolis update, analytical derivative
+                        std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, laplBox, std::array{m_}, potBox, coordBound,
+                            wavefBox, vmcp::ParamBounds<0>{}, laplBox, m_, potBox, coordBound, numEnergies,
+                            vmcp::StatFuncType::regular, numSamples, rndGen);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
+                                      logMes);
+                    }
+                    {
+                        // Metropolis update, numerical derivative
+                        std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
+                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
+                            wavefBox, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potBox, coordBound,
                             numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
+                                      logMes);
                     }
-                    SUBCASE("Metropolis algorithm, numerical derivative") {
+                    {
+                        // Impostance sampling update, analytical derivative
+                        std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, false, derivativeStep, std::array{m_}, potBox,
-                            coordBound, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                            wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox, m_, potBox, coordBound,
+                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
+                                      logMes);
                     }
-                    SUBCASE("Importance sampling algorithm, analytical derivative") {
+                    {
+                        // Importance sampling update, numerical derivative
+                        std::string const logMes = impSampLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox, std::array{m_}, potBox,
-                            coordBound, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                            wavefBox, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potBox, coordBound,
+                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
+                                      logMes);
                     }
-                    /* SUBCASE("Importance sampling algorithm, numerical derivative") {
-                        vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, true, derivativeStep, std::array{m_}, potBox,
-                            coordBound, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
-                                          max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
-                    } */
                 }
             }
 

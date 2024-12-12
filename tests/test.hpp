@@ -12,6 +12,10 @@
 // Chosen at random, but fixed to guarantee reproducibility of failed tests
 constexpr vmcp::UIntType seed = 648265u;
 const std::string logFilePath = "../artifacts/test-log.txt";
+const std::string metrLogMes = "Metropolis algortihm";
+const std::string impSampLogMes = "Importance sampling algorithm";
+const std::string anDerLogMes = "analytical derivative";
+const std::string numDerLogMes = "numerical derivative";
 
 constexpr vmcp::IntType allowedStdDevs = 10;
 // Maximum allowed discrepancy between the computed energy and the expected energy
