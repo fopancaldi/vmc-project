@@ -15,11 +15,11 @@ const std::string logFilePath = "../artifacts/test-log.txt";
 
 constexpr vmcp::IntType allowedStdDevs = 10;
 // Maximum allowed discrepancy between the computed energy and the expected energy
-constexpr vmcp::Energy vmcEnergyTolerance{0.5f};
+constexpr vmcp::Energy vmcEnergyTolerance{0.1f};
 // Should have been constexpr, we just used const since otherwise the intellisense complains
 // If the standard deviation is smaller than this, it is highly probable that numerical errors were
 // non-negligible
-const vmcp::Energy stdDevTolerance{std::numeric_limits<vmcp::FPType>::epsilon() * 100};
+const vmcp::Energy stdDevTolerance{std::numeric_limits<vmcp::FPType>::epsilon() * 1000};
 
 constexpr vmcp::IntType iterations = 1 << 6;
 // The denominator to obtain the number of iterations when the variational parameters are used
@@ -31,6 +31,7 @@ constexpr vmcp::IntType numEnergies = 1 << 9;
 constexpr vmcp::IntType vpNumEnergiesFactor = 1 << 3;
 static_assert((numEnergies % vpNumEnergiesFactor) == 0);
 
+// LF TODO: If it is only used for bootstrapping, maybe rename to 'boostrapSamples'?
 // The number of samples for bootsrapping technique of statistical analysis
 constexpr vmcp::IntType numSamples = 10000;
 
@@ -45,5 +46,8 @@ inline vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType 
     vmcp::VarParam const high{std::min(param.val * highFactor, param.val + maxDiff.val)};
     return vmcp::Bound<vmcp::VarParam>{low, high};
 }
+
+// Denominator to obtain the derivative step from the length of the integration region
+constexpr vmcp::FPType derivativeStepDenom = 100000;
 
 #endif

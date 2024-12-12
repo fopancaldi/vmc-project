@@ -23,7 +23,7 @@ VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, Laplacians<N, Laplacian> con
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
 VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, Laplacians<N, Laplacian> const &, Masses<N>,
-                       Potential const &, CoordBounds<D>, IntType, RandomGenerator &);
+                       Potential const &, CoordBounds<D>, StatFuncType, IntType, RandomGenerator &);
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
@@ -36,7 +36,7 @@ template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class First
           class Potential>
 VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, Gradients<D, N, FirstDerivative> const &,
                        Laplacians<N, Laplacian> const &, Masses<N>, Potential const &, CoordBounds<D>,
-                       IntType, RandomGenerator &);
+                       StatFuncType, IntType, RandomGenerator &);
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
 std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<V>, bool, FPType, Masses<N>,
@@ -45,7 +45,7 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &, VarParams<
 
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
 VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masses<N>, Potential const &,
-                       CoordBounds<D>, IntType, RandomGenerator &);
+                       CoordBounds<D>, StatFuncType, IntType, RandomGenerator &);
 
 //! @defgroup algs-constants Constants
 //! @brief Constants used in the algorithms and/or the helper functions
@@ -77,8 +77,6 @@ constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = 1e-9f;
 //! @brief Number of independent gradient descents carried out simultaneously
 constexpr IntType numWalkers_gradDesc = 8;
-//! @brief Fraction of the current energy that can be gained at most in a gradient descent move
-constexpr FPType increaseFrac_gradDesc = 0.1f;
 // FP TODO: Rename this one, and document
 constexpr IntType stepDenom_vmcLEPs = 100;
 //! @brief Number of updates after which the sampled local energies are uncorrelated
