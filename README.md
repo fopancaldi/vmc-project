@@ -8,40 +8,59 @@ Follows the instructions of Morten Hjorth-Jensen's [project](https://github.com/
 - To generate documentation: `doxygen`, `graphviz`
 
 The program has a [Dev container](https://code.visualstudio.com/docs/devcontainers/containers) configuration file, so if the container is created (for example from VS Code) all required dependencies are automatically installed.
-As the code was developed and tested inside a container, using one also guarantees the absence of architecture- or OS-specific bugs.
-To run a Dev container, follow the [guide](https://code.visualstudio.com/docs/devcontainers/tutorial) or, in short:
-1. Install [Docker](https://www.docker.com/).
-2. Install the VS Code Dev container [extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
-3. Either build the container from the window in the bottom-right that appears when VS Code is launched, or, from the top bar in VS Code, type `> Dev Containers: Build and Open in a Container`.
+As the code was developed and tested inside a container, using one also guarantees the absence of OS-specific bugs.
+To run a Dev container from VS Code, follow the [guide](https://code.visualstudio.com/docs/devcontainers/tutorial) or, in short:
+1. Install [VS Code](https://code.visualstudio.com/).
+2. Install [Docker](https://www.docker.com/).
+3. Install the VS Code Dev container [extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+4. Open the program in VS Code, and either:
+   -  build the container from the pop-up window in the bottom-right that appears after opening, or
+   -  type in the top bar `> Dev Containers: Build and Open in a Container`.
 
 # Usage (Linux, includes the Dev container)
 
 - To run the program:
     ```
-    cmake -S . -B build -D BUILD_MAIN=ON -D BUILD_TEST_HO=OFF -D BUILD_TEST_RAD=OFF -D BUILD_TEST_BOX=OFF -D BUILD_TEST_STAT=OFF
-    cmake build build
+    cmake -S . -B build -D BUILD_MAIN=ON -D CMAKE_BUILD_TYPE=Release
+    cmake --build build
     build/main-vmc
     ```
 - To run the tests (and save a log)
     ```
-    cmake -S . -B build -D BUILD_MAIN=OFF -D BUILD_TEST_XXX=ON -D BUILD_TEST_YYY=OFF
+    cmake -S . -B build -D BUILDT_ALL=ON
     cmake --build build
     cd build
     make test
     ```
-    where `XXX` is one (or more) among `HO`, `RAD`, `BOX`, `STAT`. The tests not set to `ON` should be set to `OFF` (so their keywords should replace `YYY`), so that each variable `BUILD_TEST_KEYWORD` is defined.
+    To build a specific test(s) define, instead of `BUILDT_ALL`, the variable(s) `BUILDT_XXX`, where `XXX` is among:
+    - `HO_1P1D`
+    - `HO_1P2D`
+    - `HO_2P1D`
+    - `BOX_1P1D`
+    - `RAD_1P1D`
+    - `STAT`
+    
+    Multiple variables can be defined in the same command. Example:
+    ```
+    cmake -S . -B build -D BUILDT_HO_1P1D=ON BUILDT_HO_1P2D=ON BUILDT_HO_2P1D=ON
+    cmake --build build
+    cd build
+    make test
+    ```
 
 # Documentation
 
-Use
+Available on [github pages](https://fopancaldi.github.io/vmc-project/).
+
+Alternatively, it can be built locally by running
 ```
 doxygen
 ```
-then open `html/index.html` in a browser.
+in the main directory and viewed by opening `./docs/html/index.html` in a browser.
 There are warnings since some functions (for example, `operator+=` for `Coordinate`) are not documented.
 This is by choice, since those are so simple that documenting them would just clutter both the code and the html page.
 
-Do **not** generate a Doxygen configuration file.
+When building locally, do **not** generate a new Doxygen configuration file.
 
 # General remarks
 
