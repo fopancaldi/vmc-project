@@ -152,7 +152,7 @@ TEST_CASE("Testing the harmonic oscillator") {
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
-                 i += vpIterationsFactor / 2, m_[0] += mStep * vpIterationsFactor / 2) {
+                 i += vpIterationsFactor, m_[0] += mStep * vpIterationsFactor) {
                 potHO.m = m_[0];
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
                      j += vpIterationsFactor / 2, omega_ += omegaStep * vpIterationsFactor / 2) {
