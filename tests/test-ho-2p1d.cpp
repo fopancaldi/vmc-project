@@ -39,6 +39,7 @@ TEST_CASE("Testing the harmonic oscillator") {
             std::array<vmcp::Mass, 2> m;
             std::array<vmcp::FPType, 2> omega;
             vmcp::FPType operator()(vmcp::Positions<1, 2> x) const {
+                std::cout << "Pot:" << x[0][0].val << " ," << x[1][0].val << "\n";
                 return x[0][0].val * x[0][0].val * (m[0].val * omega[0] * omega[0] / 2) +
                        x[1][0].val * x[1][0].val * (m[1].val * omega[1] * omega[1] / 2);
             }
