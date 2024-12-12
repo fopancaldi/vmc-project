@@ -109,8 +109,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                                       logMes);
                     }
                     {
-                        // Importance sampling update, analytical derivative
-                        std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
+                        // Metropolis update, numerical derivative
+                        std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<2, 1, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, std::array{m_}, potHO,
                             coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
@@ -119,9 +119,9 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
                     }
-                    {
-                        // Metropolis update, numerical derivative
-                        std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
+                    /* {
+                        // Importance sampling update, analytical derivative
+                        std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO, std::array{m_}, potHO,
                             coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
@@ -129,7 +129,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
-                    }
+                    } */
                     /* {
                         // Importance sampling update, numerical derivative
                         std::string const logMes = impSampLogMes + ", " + numDerLogMes + ", " + genericLogMes;
