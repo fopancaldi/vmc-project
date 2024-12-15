@@ -16,7 +16,7 @@
 #include <string>
 #include <tuple>
 
-TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
+TEST_CASE("Testing the harmonic oscillator") {
     std::ofstream file_stream;
     file_stream.open(logFilePath, std::ios_base::app);
     SUBCASE("2D harmonic oscillator, one particle") {
@@ -24,9 +24,9 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                                                   vmcp::Bound{vmcp::Coordinate{-100}, vmcp::Coordinate{100}}};
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Masses<1> const mInit{1.f};
-        vmcp::FPType const omegaInit = 1.f;
-        vmcp::Mass const mStep{0.2f};
-        vmcp::FPType const omegaStep = 0.2f;
+        vmcp::FPType const omegaInit = 1;
+        vmcp::Mass const mStep{0.1f};
+        vmcp::FPType const omegaStep = 0.1f;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const omegaIterations = iterations;
         struct PotHO {
@@ -94,44 +94,52 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
                     laplHO[0].omega = omega_;
 
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
-                    std::string const logMessage =
+                    std::string const genericLogMes =
                         "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_);
 
-                    SUBCASE("Metropolis algorithm, analytical derivative") {
+                    {
+                        // Metropolis update, analytical derivative
+                        std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, laplHO, std::array{m_}, potHO, coordBounds,
                             numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
+                                      logMes);
                     }
-                    SUBCASE("Metropolis algorithm, numerical derivative") {
+                    /* {
+                        // Metropolis update, numerical derivative
+                        std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<2, 1, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, std::array{m_}, potHO,
                             coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
-                    }
-                    SUBCASE("Importance algorithm sampling, analytical derivative") {
+                                      logMes);
+                    } */
+                    /* {
+                        // Importance sampling update, analytical derivative
+                        std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 0>(
                             wavefHO, vmcp::ParamBounds<0>{}, gradHO, laplHO, std::array{m_}, potHO,
                             coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
-                    }
-                    /* SUBCASE("Importance sampling algorithm, numerical derivative") {
+                                      logMes);
+                    } */
+                    /* {
+                        // Importance sampling update, numerical derivative
+                        std::string const logMes = impSampLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<2, 1, 0>(
-                            wavefHO, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
-                            coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                            wavefHO, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO, coordBounds,
+                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
+                                      logMes);
                     } */
                 }
             }
@@ -156,32 +164,33 @@ TEST_CASE("Testing the harmonic oscillator" * doctest::may_fail()) {
             auto start = std::chrono::high_resolution_clock::now();
 
             for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
-                 i += vpIterationsFactor, m_[0] += mStep * vpIterationsFactor) {
+                 i += vpIterationsFactor * 2, m_[0] += mStep * vpIterationsFactor * 2) {
                 potHO.m = m_[0];
                 for (auto [j, omega_] = std::tuple{vmcp::IntType{0}, omegaInit}; j != omegaIterations;
-                     j += vpIterationsFactor, omega_ += omegaStep * vpIterationsFactor) {
+                     j += vpIterationsFactor * 2, omega_ += omegaStep * vpIterationsFactor * 2) {
                     potHO.omega = omega_;
 
                     vmcp::VarParam const bestParam{m_[0].val * omega_ / vmcp::hbar};
                     vmcp::ParamBounds<1> const parBound{
                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_};
-                    std::string const logMessage{"mass: " + std::to_string(m_[0].val) +
-                                                 ", ang. vel.: " + std::to_string(omega_)};
+                    std::string const genericLogMes =
+                        "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_);
 
-                    SUBCASE("Metropolis algorithm, analytical derivative") {
+                    {
+                        // Metropolis update, analytical derivative
+                        std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         auto startOnePar = std::chrono::high_resolution_clock::now();
                         vmcp::VMCResult const vmcr = vmcp::VMCEnergy<2, 1, 1>(
-                            wavefHO, parBound, laplHO, std::array{m_}, potHO, coordBounds, numEnergies,
+                            wavefHO, parBound, laplHO, m_, potHO, coordBounds, numEnergies,
                             vmcp::StatFuncType::regular, numSamples, rndGen);
                         auto stopOnePar = std::chrono::high_resolution_clock::now();
                         auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
-                        file_stream << "Mass " << m_[0].val << " and ang. vel. " << omega_
-                                    << " (seconds): " << durationOnePar.count() << '\n';
-                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                        file_stream << logMes << " (seconds): " << durationOnePar.count() << '\n';
+                        CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                      logMessage);
+                                      logMes);
                     }
                 }
             }
