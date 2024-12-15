@@ -56,12 +56,6 @@ VMCResult<V> VMCEnergy(Wavefunction const &, ParamBounds<V>, bool, FPType, Masse
 
 //! @brief Reduced Planck constant
 constexpr FPType hbar = 1;
-//! @brief Minimal value of the wavefunction to accept the point as the new highest point of the potential
-//! @see FindStartPoint
-//!
-//! Minimal value of the wavefunction to accept the point as the new peak of the potential.
-//! Aviods situations where the wavefunction at the peak is 'nan', which breaks the update algorithms.
-constexpr FPType minWavef_peakSearch = 1e-6f;
 //! @brief Maximum number of iterations of the gradient descent
 //! @see BestParams
 //!
@@ -73,7 +67,7 @@ constexpr IntType stepDenom_gradDesc = 100;
 //! @brief When the gradient divided by the parameters' norm is smaller than this, stop the gradient descent
 constexpr FPType stoppingThreshold_gradDesc = 1e-9f;
 //! @brief Number of independent gradient descents carried out simultaneously
-constexpr IntType numWalkers_gradDesc = 8;
+constexpr IntType numWalkers_gradDesc = 1;
 // FP TODO: Rename this one, and document
 constexpr IntType stepDenom_vmcLEPs = 100;
 //! @brief Number of updates after which the sampled local energies are uncorrelated
@@ -84,12 +78,6 @@ constexpr IntType autocorrelationMoves_vmcLEPs = 100;
 constexpr IntType movesForgetICs_vmcLEPs = 10 * autocorrelationMoves_vmcLEPs;
 //! @brief Optimal acceptance rate for the updates in the VMC algorithm
 constexpr FPType targetAcceptRate_vmcLEPs = 0.5f;
-// LF TODO: Rename this one, and document
-// Also, is there a better criterion to choose this than to simply fix it (which is a bad idea since it might
-// turn out to be too large for some programs)?
-// I propose the following criterion: ask for 'step' as an input too (like MetropolisUpdate_ does), and choose
-// deltaT such that on average the random part of the jump has length 'step'
-constexpr FPType deltaT = 0.005f;
 
 //! @}
 

@@ -31,7 +31,11 @@ TEST_CASE("Testing the radial problem") {
 
         struct PotRad {
             vmcp::FPType k;
-            vmcp::FPType operator()(vmcp::Positions<1, 1> r) const { return -k / std::abs(r[0][0].val); }
+            vmcp::FPType operator()(vmcp::Positions<1, 1> r) const {
+                vmcp::FPType pot = -k / std::abs(r[0][0].val);
+                assert(!std::isnan(pot));
+                return pot;
+            }
         };
 
         SUBCASE("No variational parameters, with Metropolis or importance sampling") {
@@ -49,8 +53,8 @@ TEST_CASE("Testing the radial problem") {
                 vmcp::FPType operator()(vmcp::Positions<1, 1> r, vmcp::VarParams<0>) const {
                     vmcp::FPType a0 = vmcp::hbar * vmcp::hbar / (k * m.val);
                     return (std::exp(-std::abs(r[0][0].val) / a0) -
-                            std::abs(r[0][0].val) * std::exp(std::abs(r[0][0].val) / a0)) *
-                           std::copysign(1.f, r[0][0].val);
+                            WavefRad{m, k}(r, vmcp::VarParams<0>{}) / a0) *
+                           std::copysign(vmcp::FPType{1}, r[0][0].val);
                 }
             };
             struct LaplRad {
@@ -58,8 +62,8 @@ TEST_CASE("Testing the radial problem") {
                 vmcp::FPType k;
                 vmcp::FPType operator()(vmcp::Positions<1, 1> r, vmcp::VarParams<0>) const {
                     vmcp::FPType a0 = vmcp::hbar * vmcp::hbar / (k * m.val);
-                    return (WavefRad{m, k}(r, vmcp::VarParams<0>{}) / a0) *
-                           (1 / a0 - 2 / std::abs(r[0][0].val));
+                    return WavefRad{m, k}(r, vmcp::VarParams<0>{}) / (a0 * a0) -
+                           (2 / a0) * std::exp(-std::abs(r[0][0].val) / a0);
                 }
             };
 
@@ -82,77 +86,84 @@ TEST_CASE("Testing the radial problem") {
                     laplRad[0].m = m_;
 
                     vmcp::Energy const expectedEn{-k_ * k_ * m_.val / (2 * vmcp::hbar * vmcp::hbar)};
-                    vmcp::VMCResult const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
-                        wavefRad, vmcp::ParamBounds<0>{}, laplRad, std::array{m_}, potRad, coordBound,
-                        numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
-                    vmcp::VMCResult const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
-                        wavefRad, vmcp::ParamBounds<0>{}, gradRad, laplRad, std::array{m_}, potRad,
-                        coordBound, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                    vmcp::Positions<1, 1> startPoss = FindPeak_<1, 1>(wavefRad, vmcp::VarParams<0>{}, potRad,
+                                                                      coordBound, points_peakSearch, rndGen);
+
+                    vmcp::VMCResult<0> const vmcrMetr = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefRad, startPoss, vmcp::ParamBounds<0>{}, laplRad, std::array{m_}, potRad,
+                        coordBound, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
+                    vmcp::VMCResult<0> const vmcrImpSamp = vmcp::VMCEnergy<1, 1, 0>(
+                        wavefRad, startPoss, vmcp::ParamBounds<0>{}, gradRad, laplRad, std::array{m_}, potRad,
+                        coordBound, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
 
                     std::string logMessage{"mass: " + std::to_string(m_.val) +
                                            "  Coulomb const: " + std::to_string(k_)};
                     CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                    // LF FIXME: this second type of tests need 30 std devs to succeed, something's wrong
-                    /*CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
+                    CHECK_MESSAGE(abs(vmcrMetr.energy - expectedEn) <
                                       max(vmcrMetr.stdDev * allowedStdDevs, stdDevTolerance),
-                                  logMessage);*/
+                                  logMessage);
                     CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                    /* CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
-                                       max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
-                                   logMessage);*/
+                    CHECK_MESSAGE(abs(vmcrImpSamp.energy - expectedEn) <
+                                      max(vmcrImpSamp.stdDev * allowedStdDevs, stdDevTolerance),
+                                  logMessage);
                 }
             }
 
-                auto stop = std::chrono::high_resolution_clock::now();
-                auto duration = duration_cast<std::chrono::seconds>(stop - start);
-                file_stream << "Radial problem, no var. parameters (seconds): " << duration.count() << '\n';
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = duration_cast<std::chrono::seconds>(stop - start);
+            file_stream << "Radial problem, no var. parameters (seconds): " << duration.count() << '\n';
         }
 
-        /*
-                SUBCASE("One variational parameter") {
-                    auto const wavefRad{[](vmcp::Positions<1, 1> r, vmcp::VarParams<1> alpha) {
-                        return std::abs(r[0][0].val) * std::exp(-std::abs(r[0][0].val) * alpha[0].val);
-                    }};
+        /* SUBCASE("One variational parameter") {
+             auto const wavefRad{[](vmcp::Positions<1, 1> r, vmcp::VarParams<1> alpha) {
+                 return std::abs(r[0][0].val) * std::exp(-std::abs(r[0][0].val) * alpha[0].val);
+             }};
 
-                    std::array laplRad{[](vmcp::Positions<1, 1> r, vmcp::VarParams<1> alpha) {
-                        return std::abs(r[0][0].val) * std::exp(-std::abs(r[0][0].val) * alpha[0].val) *
-                               alpha[0].val * (alpha[0].val - (2 / std::abs(r[0][0].val)));
-                    }};
+             std::array laplRad{[](vmcp::Positions<1, 1> r, vmcp::VarParams<1> alpha) {
+                 return alpha[0].val *
+                        (std::abs(r[0][0].val) * std::exp(-std::abs(r[0][0].val) * alpha[0].val) *
+                             alpha[0].val -
+                         (2 * std::exp(-std::abs(r[0][0].val) * alpha[0].val) /
+         std::abs(r[0][0].val)));
+             }};
 
-                    auto start = std::chrono::high_resolution_clock::now();
+                                  auto start = std::chrono::high_resolution_clock::now();
 
-                    for (auto [j, k_] = std::tuple{vmcp::IntType{0}, kInit}; j != kIterations;
-                         j += vpIterationsFactor, k_ += kStep * vpIterationsFactor) {
-                        PotRad potRad{kInit};
 
-                        for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
-                             i += vpIterationsFactor, m_ += mStep * vpIterationsFactor) {
-                            vmcp::VarParam bestParam{k_ * m_.val / std::pow(vmcp::hbar, 2)};
-                            vmcp::ParamBounds<1> const parBound{
-                                NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
-                            vmcp::Energy const expectedEn{-k_ * k_ * m_.val / (2 * vmcp::hbar * vmcp::hbar)};
+             for (auto [j, k_] = std::tuple{vmcp::IntType{0}, kInit}; j != kIterations;
+                  j += vpIterationsFactor, k_ += kStep * vpIterationsFactor) {
+                 PotRad potRad{kInit};
 
-                            auto startOnePar = std::chrono::high_resolution_clock::now();
-                            vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(
-                                wavefRad, parBound, laplRad, std::array{m_}, potRad, coordBound,
-           numEnergies,vmcp::StatFuncType::regular, numSamples, rndGen); auto stopOnePar =
-           std::chrono::high_resolution_clock::now(); auto durationOnePar =
-           duration_cast<std::chrono::seconds>(stopOnePar - startOnePar); file_stream << "Radial problem, one
-           var.parameter, with mass " << m_.val
-                                        << " (seconds): " << durationOnePar.count() << '\n';
+                 for (auto [i, m_] = std::tuple{vmcp::IntType{0}, mInit}; i != mIterations;
+                      i += vpIterationsFactor, m_ += mStep * vpIterationsFactor) {
+                     vmcp::VarParam bestParam{k_ * m_.val / std::pow(vmcp::hbar, 2)};
+                     vmcp::ParamBounds<1> const parBound{
+                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
+                     vmcp::Energy const expectedEn{-k_ * k_ * m_.val / (2 * vmcp::hbar * vmcp::hbar)};
+vmcp::Positions<1, 1> const startPoss =
+                        FindPeak_<1, 1>(wavefHO, vmcp::VarParams<1>{bestParam}, potHO, coordBounds,
+                                        points_peakSearch, rndGen);
 
-                            std::string logMessage{"mass: " + std::to_string(m_.val) +
-                                                   "  Coulomb const: " + std::to_string(k_)};
-                            CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
-                            CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
-                                              max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
-                                          logMessage);
-                        }
-                    }
-                    auto stop = std::chrono::high_resolution_clock::now();
-                    auto duration = duration_cast<std::chrono::seconds>(stop - start);
-                    file_stream << "Radial problem, one var. parameter (seconds): " << duration.count() <<
-           '\n';
-                }*/
+                     vmcp::VMCResult const vmcr = vmcp::VMCEnergy<1, 1, 1>(
+                         wavefRad, startPoss, parBound, laplRad, std::array{m_}, potRad, coordBound,
+numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen); auto stopOnePar =
+std::chrono::high_resolution_clock::now(); auto durationOnePar =
+duration_cast<std::chrono::seconds>(stopOnePar - startOnePar); file_stream << "Radial problem, one
+var.parameter, with mass " << m_.val
+                                 << " (seconds): " << durationOnePar.count() << '\n';
+
+                     std::string logMessage{"mass: " + std::to_string(m_.val) +
+                                            "  Coulomb const: " + std::to_string(k_)};
+                     CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
+                     CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
+                                       max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
+                                   logMessage);
+                 }
+             }
+             auto stop = std::chrono::high_resolution_clock::now();
+             auto duration = duration_cast<std::chrono::seconds>(stop - start);
+             file_stream << "Radial problem, one var. parameter (seconds): " << duration.count() <<
+         '\n';
+         }*/
     }
 }

@@ -30,144 +30,15 @@
 #include <limits>
 #include <mutex>
 #include <numeric>
+#include <queue>
 #include <ranges>
+#include <set>
 
 namespace vmcp {
 
 //! @defgroup core-helpers Core helpers
 //! @brief Help the core functions
 //! @{
-
-//! @brief Finds a point where the potential is large
-//! @param wavef The wavefunction
-//! @param params The variational parameters
-//! @param pot The potential
-//! @param bounds The region in which the search for the starting point will be done
-//! @param numPoints How many points will be sampled in the search
-//! @param gen The random generator
-//! @return The positions of the starting point
-//!
-//! Randomly chooses points in the region and where the potential is largest, but the wavefunction
-//! is not too small. The latter is done to avoid having the wavefunction be 'nan', which breaks the VMC
-//! update algorithms
-//! Helper for 'VMCLocEnAndPoss'
-
-template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
-Positions<D, N> FindStartPoint_(Wavefunction const &wavef, VarParams<V> params, CoordBounds<D> bounds,
-                                RandomGenerator &gen) {
-    static_assert(IsWavefunction<D, N, V, Wavefunction>());
-
-    Positions<D, N> result;
-    std::normal_distribution<FPType> norm(FPType{0.5f}, FPType{0.25f});
-
-    // Initialize positions randomly within bounds
-    do {
-        for (Position<D> &p : result) {
-            std::transform(bounds.begin(), bounds.end(), p.begin(), [&norm, &gen](Bound<Coordinate> b) {
-                Coordinate resultC = b.lower + b.Length() * norm(gen);
-                while ((resultC < b.lower) || (resultC > b.upper)) {
-                    resultC = b.lower + (b.upper - b.lower) * norm(gen);
-                }
-                return resultC;
-            });
-        }
-    } while (wavef(result, params) < minWavef_peakSearch);
-
-    FPType const paramsNorm =
-        std::sqrt(std::inner_product(params.begin(), params.end(), params.begin(), FPType{0}, std::plus<>(),
-                                     [](VarParam v1, VarParam v2) { return v1.val * v2.val; }));
-    FPType gradientStep = paramsNorm / stepDenom_gradDesc;
-    do {
-        // Gradient descent
-        for (int i = 0; i < maxLoops_gradDesc; ++i) {
-            // The gradient descent should end in a reasonable time
-            assert((i + 1) != maxLoops_gradDesc);
-
-            Positions<D, N> gradient;
-            for (auto &g : gradient) {
-                g.fill(Coordinate{0}); // Initialize gradient to zero
-            }
-
-            // Compute gradient numerically for each particle in each dimension
-            for (ParticNum n = 0; n < N; ++n) {
-                for (Dimension d = 0; d < D; ++d) {
-                    Positions<D, N> perturbedForward = result;
-                    Positions<D, N> perturbedBackward = result;
-
-                    perturbedForward[n][d].val += gradientStep;
-                    perturbedBackward[n][d].val -= gradientStep;
-
-                    FPType wavefForward = wavef(perturbedForward, params);
-                    FPType wavefBackward = wavef(perturbedBackward, params);
-
-                    // Central difference to estimate gradient
-                    gradient[n][d].val = (wavefForward - wavefBackward) / (2 * gradientStep);
-                }
-            }
-
-            // Apply gradient to update positions
-            FPType gradNorm{0};
-            for (ParticNum n = 0; n < N; ++n) {
-                for (Dimension d = 0; d < D; ++d) {
-                    gradNorm += gradient[n][d].val * gradient[n][d].val;
-                    result[n][d].val += gradientStep * gradient[n][d].val;
-                }
-            }
-
-            // Normalize step size and enforce bounds
-            if (std::sqrt(gradNorm) < stoppingThreshold_gradDesc) {
-                break;
-            }
-            for (Position<D> &p : result) {
-                std::transform(bounds.begin(), bounds.end(), p.begin(), p.begin(),
-                               [](Bound<Coordinate> b, Coordinate c) {
-                                   return std::clamp<Coordinate>(c, b.lower, b.upper);
-                               });
-            }
-        }
-    } while (wavef(result, params) > minWavef_peakSearch);
-
-    std::cout << "\nFinished start point search using gradient descent\n";
-    return result;
-}
-/*template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
-Positions<D, N> FindStartPoint_(Wavefunction const &wavef, VarParams<V> params, CoordBounds<D> bounds,
-                                RandomGenerator &gen) {
-    static_assert(IsWavefunction<D, N, V, Wavefunction>());
-
-    Positions<D, N> result;
-    std::normal_distribution<FPType> norm(FPType{0.5f}, FPType{0.25f});
-
-    do {
-        for (Position<D> &p : result) {
-            std::transform(bounds.begin(), bounds.end(), p.begin(), [&norm, &gen](Bound<Coordinate> b) {
-                Coordinate resultC = b.lower + b.Length() * norm(gen);
-                // LF FP TODO: define <= , >= operators for coordinate
-                while ((resultC.val < b.lower.val) || (resultC.val > b.upper.val)) {
-                    resultC = b.lower + (b.upper - b.lower) * norm(gen);
-                }
-                return resultC;
-            });
-        }
-
-    } while (wavef(result, params) < minWavef_peakSearch);
-
-    std::uniform_real_distribution<FPType> unif(0, 1);
-
-    do {
-        for (Position<D> &p : result) {
-            std::transform(bounds.begin(), bounds.end(), p.begin(), p.begin(),
-                           [&unif, &gen](Bound<Coordinate> b, Coordinate c) {
-                               // LF TODO: Replace with grad descent
-                               return c + unif(gen) * b.Length() / 1000;
-                           });
-        }
-
-    } while (wavef(result, params) > minWavef_peakSearch);
-
-    std::cout << "\nFinished start point search \n";
-    return result;
-}*/
 
 //! @defgroup update-algs Update algorithms
 //! @brief The algorithms that move the particles during the simulations
@@ -177,8 +48,12 @@ Positions<D, N> FindStartPoint_(Wavefunction const &wavef, VarParams<V> params, 
 //! @brief Help the update algorithms
 //! @{
 
-// LF TODO: Document
-// Computes the drift force by using its analytic expression
+//! @brief Computes the drift force by using its analytic expression
+//! @param wavef The wavefunction
+//! @param poss The current positions of the particles
+//! @param params The variational parameters
+//! @param grads The gradients of the wavefunction (one for each particle)
+//! @return The drift force evaluated analytically
 template <Dimension D, ParticNum N, VarParNum V, class FirstDerivative, class Wavefunction>
 std::array<std::array<FPType, D>, N> DriftForceAnalytic_(Wavefunction const &wavef, Positions<D, N> poss,
                                                          VarParams<V> params,
@@ -201,11 +76,15 @@ std::array<std::array<FPType, D>, N> DriftForceAnalytic_(Wavefunction const &wav
     return result;
 }
 
-// LF TODO: Document
-// Computes the drift force by numerically estimating the derivative of the wavefunction
+//! @brief Computes the drift force by numerically estimating the derivative of the wavefunction
+//! @param wavef The wavefunction
+//! @param params The variational parameters
+//! @param step The step size of the jump in the numeric estimate of the derivative
+//! @param poss The current positions of the particles
+//! @return The drift force evaluated numerically
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
-std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &wavef, VarParams<V> params,
-                                                        FPType step, Positions<D, N> poss) {
+std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &wavef, Positions<D, N> poss,
+                                                        VarParams<V> params, FPType step) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
     std::array<std::array<FPType, D>, N> result;
@@ -238,9 +117,9 @@ std::array<std::array<FPType, D>, N> DriftForceNumeric_(Wavefunction const &wave
 //! @param wavef The wavefunction
 //! @param params The variational parameters
 //! @param poss The current positions of the particles, will be modified if some updates succeed
-//! @param step The step size of th jump
+//! @param step The step size of the jump
 //! @param gen The random generator
-//! @return The number of succesful updates
+//! @return The number of successful updates
 //!
 //! Attempts to update the position of each particle once, sequentially.
 //! An update consists in a random jump in each cardinal direction, after which the Metropolis question is
@@ -268,15 +147,28 @@ IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positi
     return succesfulUpdates;
 }
 
-// LF TODO: Document
-// LF TODO: Tell that this functions applies formula at page 22 Jensen
-// LF TODO: DriftForceNumeric_ is not used here!
-//  Updates the wavefunction with the importance sampling algorithm and outputs the number of succesful
-//  updates
+//! @brief Attempts to update each position once by using the Importance Sampling algorithm
+//! @param wavef The wavefunction
+//! @param params The variational parameters
+//! @param useAnalytical Whether the drift force must be computed by using the analytical expression of the
+//! gardients
+//! @param derivativeStep The step used is the numerical estimation of the drift force derivatives (unused if
+//! 'useAnalytical == true')
+//! @param grads The gradients of the wavefunction (one for each particle)
+//! @param masses The masses of the particles
+//! @param poss The current positions of the particles, will be modified if some updates succeed
+//! @param step The average length of the random part of the jump in changing positions
+//! @param gen The random generator
+//! @return The number of successful updates
+//!
+//! This function applies formulas in the end of section 1.4.3 of Nuclear Many-body Physics - a Computational
+//! Approach - Monte Carlo methods, Morten Hjorth-Jensen.
+//! It attempts to update the position of each particle once, sequentially.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative>
 IntType ImportanceSamplingUpdate_(Wavefunction const &wavef, VarParams<V> params, bool useAnalytical,
                                   FPType derivativeStep, Gradients<D, N, FirstDerivative> const &grads,
-                                  Masses<N> masses, Positions<D, N> &poss, RandomGenerator &gen) {
+                                  Masses<N> masses, Positions<D, N> &poss, FPType step,
+                                  RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
 
@@ -296,17 +188,25 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &wavef, VarParams<V> params
         } else {
             oldDriftForce = DriftForceNumeric_<D, N, V>(wavef, poss, params, derivativeStep);
         }
-        std::normal_distribution<FPType> normal(0, diffConsts[n] * deltaT);
+
+        // Jensen in his notes, section 1.4.3, suggests a value between 0.001 and 0.01
+        FPType const timeStep = 0.005;
+
+        // Variance is choosen such that the average length of the random part of the jump equals step
+        std::normal_distribution<FPType> normal(0, step / (2 * std::sqrt(2 * std::numbers::pi_v<FPType>)));
+
         for (Dimension d = 0u; d != D; ++d) {
-            p[d].val = oldPos[d].val + diffConsts[n] * deltaT * (oldDriftForce[n][d] + normal(gen));
+            p[d].val = oldPos[d].val + diffConsts[n] * timeStep * oldDriftForce[n][d] +
+                       normal(gen) * std::sqrt(timeStep);
         }
+
         FPType const newPsi = wavef(poss, params);
 
         FPType forwardExponent = 0;
         for (Dimension d = 0u; d != D; ++d) {
             forwardExponent -=
-                std::pow(p[d].val - oldPos[d].val - diffConsts[n] * deltaT * oldDriftForce[n][d], 2) /
-                (4 * diffConsts[n] * deltaT);
+                std::pow(p[d].val - oldPos[d].val - diffConsts[n] * timeStep * oldDriftForce[n][d], 2) /
+                (4 * diffConsts[n] * timeStep);
         }
         FPType const forwardProb = std::exp(forwardExponent);
 
@@ -319,8 +219,8 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &wavef, VarParams<V> params
         FPType backwardExponent = 0;
         for (Dimension d = 0u; d != D; ++d) {
             backwardExponent -=
-                std::pow(oldPos[d].val - p[d].val - diffConsts[n] * deltaT * newDriftForce[n][d], 2) /
-                (4 * diffConsts[n] * deltaT);
+                std::pow(oldPos[d].val - p[d].val - diffConsts[n] * timeStep * newDriftForce[n][d], 2) /
+                (4 * diffConsts[n] * timeStep);
         }
         FPType const backwardProb = std::exp(backwardExponent);
 

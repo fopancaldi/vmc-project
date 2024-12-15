@@ -39,7 +39,6 @@ TEST_CASE("Testing the harmonic oscillator") {
             std::array<vmcp::Mass, 2> m;
             std::array<vmcp::FPType, 2> omega;
             vmcp::FPType operator()(vmcp::Positions<1, 2> x) const {
-                std::cout << "Pot:" << x[0][0].val << " ," << x[1][0].val << "\n";
                 return x[0][0].val * x[0][0].val * (m[0].val * omega[0] * omega[0] / 2) +
                        x[1][0].val * x[1][0].val * (m[1].val * omega[1] * omega[1] / 2);
             }
@@ -119,10 +118,13 @@ TEST_CASE("Testing the harmonic oscillator") {
                         "masses: " + std::to_string(m_[0].val) + ", " + std::to_string(m_[1].val) +
                         ", ang. vels.: " + std::to_string(omega_[0]) + ", " + std::to_string(omega_[1]);
 
+                    vmcp::Positions<1, 2> startPoss = FindPeak_<1, 2>(wavefHO, vmcp::VarParams<0>{}, potHO,
+                                                                      coordBounds, points_peakSearch, rndGen);
+
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, vmcp::ParamBounds<0>{}, laplsHO, m_, potHO, coordBounds, numEnergies,
-                            vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, laplsHO, m_, potHO, coordBounds,
+                            numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -130,8 +132,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                     }
                     SUBCASE("Metropolis algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO, coordBounds,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO,
+                            coordBounds, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -139,22 +141,22 @@ TEST_CASE("Testing the harmonic oscillator") {
                     }
                     SUBCASE("Importance sampling algorithm, analytical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, vmcp::ParamBounds<0>{}, gradsHO, laplsHO, m_, potHO, coordBounds,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, gradsHO, laplsHO, m_, potHO,
+                            coordBounds, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
                     }
-                    /* SUBCASE("Importance sampling algorithm, numerical derivative") {
+                    SUBCASE("Importance sampling algorithm, numerical derivative") {
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
-                            coordBounds, numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
+                            coordBounds, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMessage);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMessage);
-                    } */
+                    }
                 }
             }
 
@@ -202,12 +204,16 @@ TEST_CASE("Testing the harmonic oscillator") {
                     std::string const logMessage =
                         "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_[0]);
 
+                    vmcp::Positions<1, 2> const startPoss =
+                        FindPeak_<1, 2>(wavefHO, vmcp::VarParams<1>{bestParam}, potHO, coordBounds,
+                                        points_peakSearch, rndGen);
+
                     SUBCASE("Metropolis algorithm, analytical derivative") {
                         auto startOnePar = std::chrono::high_resolution_clock::now();
                         vmcp::VMCResult<1> const vmcr =
-                            vmcp::VMCEnergy<1, 2, 1>(wavefHO, parBound, laplsHO, std::array{m_}, potHO,
-                                                     coordBounds, numEnergies / vpNumEnergiesFactor,
-                                                     vmcp::StatFuncType::regular, numSamples, rndGen);
+                            vmcp::VMCEnergy<1, 2, 1>(wavefHO, startPoss, parBound, laplsHO, std::array{m_},
+                                                     potHO, coordBounds, numEnergies / vpNumEnergiesFactor,
+                                                     vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         auto stopOnePar = std::chrono::high_resolution_clock::now();
                         auto durationOnePar = duration_cast<std::chrono::seconds>(stopOnePar - startOnePar);
                         file_stream << "Mass " << m_[0].val << " and ang. vel. " << omega_[0]
