@@ -37,7 +37,6 @@ To run a Dev container from VS Code, follow the [guide](https://code.visualstudi
     - `HO_1P2D`
     - `HO_2P1D`
     - `BOX_1P1D`
-    - `RAD_1P1D`
     - `STAT`
     
     Multiple variables can be defined in the same command. Example:
