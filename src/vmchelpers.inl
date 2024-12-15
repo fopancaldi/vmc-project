@@ -30,9 +30,7 @@
 #include <limits>
 #include <mutex>
 #include <numeric>
-#include <queue>
 #include <ranges>
-#include <set>
 
 namespace vmcp {
 
