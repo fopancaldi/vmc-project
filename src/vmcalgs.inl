@@ -165,14 +165,15 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
         std::generate_n(currentMomentum.begin(), V,
                         [v = VarParNum{0}, &energiesIncreasedParam, &energiesDecreasedParam, &oldMomentum,
                          gradStep]() mutable {
-                            FPType const res =
-                                (-(energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) /
-                                     (2 * gradStep) +
-                                 oldMomentum[v]) /
-                                2;
-                            assert(!std::isnan(res));
+                            // FP TODO: Magic
+                            FPType const result_ =
+                                -FPType{1} / 4 *
+                                    (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) /
+                                    (2 * gradStep) +
+                                FPType{3} / 4 * oldMomentum[v];
+                            assert(!std::isnan(result_));
                             ++v;
-                            return res;
+                            return result_;
                         });
 
         // Set as next step used to compute the gradient the current gradient norm, which is also the size of
