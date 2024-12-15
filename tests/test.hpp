@@ -41,7 +41,7 @@ constexpr vmcp::IntType numSamples = 10000;
 
 constexpr vmcp::FPType minParamFactor = 0.33f;
 constexpr vmcp::FPType maxParamFactor = 3;
-constexpr vmcp::VarParam maxParDiff{20};
+constexpr vmcp::VarParam maxParDiff{5};
 // Computes an interval for a variational parameter which is fairly large but allows the gradient descent to
 // converge in a reasonable time
 inline vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFactor,
