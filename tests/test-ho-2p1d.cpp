@@ -123,8 +123,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                         // Metropolis update, analytical derivative
                         std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, laplsHO, m_, potHO, coordBounds, numEnergies,
-                            vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, laplsHO, m_, potHO, coordBounds,
+                            numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -134,8 +134,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                         // Metropolis update, numerical derivative
                         std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO, coordBounds,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potHO,
+                            coordBounds, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -145,8 +145,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                         // Importance sampling update, analytical derivative
                         std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, gradsHO, laplsHO, m_, potHO, coordBounds,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, gradsHO, laplsHO, m_, potHO,
+                    coordBounds, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -156,8 +156,8 @@ TEST_CASE("Testing the harmonic oscillator") {
                         // Importance sampling update, numerical derivative
                         std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 2, 0>(
-                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO, coordBounds,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefHO, startPoss, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potHO,
+                    coordBounds, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -212,7 +212,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                     vmcp::Positions<1, 2> const startPoss =
                         FindPeak_<1, 2>(wavefHO, vmcp::VarParams<1>{bestParam}, potHO, coordBounds,
                                         points_peakSearch, rndGen);
-                  
+
                     {
                         // Metropolis update, analytical derivative
                         std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
