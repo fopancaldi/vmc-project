@@ -151,7 +151,7 @@ std::vector<LocEnAndPoss<D, N>> EvalStatBlocks(std::vector<LocEnAndPoss<D, N>> c
 //! @brief Helper function for Bootstrapping
 //! @param energies The energies and positions, where only the energies will be used
 //! @param numEnergies The number of energies
-//! @param numSamples The number of samples that will be generated
+//! @param boostrapSamples The number of samples that will be generated
 //! @param gen The random generator
 //! @param dist The uniform integer distribution used to extract random elements from energies vector
 //! @return A vector of energies (and positions) containing the generated samples
@@ -160,16 +160,16 @@ std::vector<LocEnAndPoss<D, N>> EvalStatBlocks(std::vector<LocEnAndPoss<D, N>> c
 //! Helper function for 'BootstrappingAnalysis'
 template <Dimension D, ParticNum N>
 std::vector<std::vector<LocEnAndPoss<D, N>>>
-BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, IntType numEnergies, IntType numSamples,
-                 RandomGenerator &gen, std::uniform_int_distribution<> &dist) {
+BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, IntType numEnergies,
+                 IntType boostrapSamples, RandomGenerator &gen, std::uniform_int_distribution<> &dist) {
     assert(numEnergies > 0);
-    assert(numSamples > 0);
+    assert(boostrapSamples > 0);
 
     std::vector<std::vector<LocEnAndPoss<D, N>>> bootstrapSamples;
-    bootstrapSamples.reserve(static_cast<unsigned long int>(numSamples));
+    bootstrapSamples.reserve(static_cast<unsigned long int>(boostrapSamples));
 
     // Resample with replacement
-    std::generate_n(std::back_inserter(bootstrapSamples), numSamples,
+    std::generate_n(std::back_inserter(bootstrapSamples), boostrapSamples,
                     [&energies, &numEnergies, &dist, &gen]() {
                         std::vector<LocEnAndPoss<D, N>> sample;
                         sample.reserve(static_cast<unsigned long int>(numEnergies));
@@ -192,7 +192,7 @@ BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, IntType numEne
 
 //! @brief Calculates the desired statistic of each sample vector
 //! @param bootstrapSamples The energies and positions, where only the energies will be used
-//! @param numSamples The number of samples that will be generated
+//! @param boostrapSamples The number of samples that will be generated
 //! @param stat statistic that will be evaluated for each block
 //! @return A vector of energies (and positions) containing the calculated statistic for each sample
 //! @see BootstrapSamples
@@ -200,12 +200,12 @@ BootstrapSamples(std::vector<LocEnAndPoss<D, N>> const &energies, IntType numEne
 //! Helper function for 'BootstrappingAnalysis'
 template <Dimension D, ParticNum N>
 std::vector<LocEnAndPoss<D, N>>
-BootstrapLEPs(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSamples, IntType numSamples,
+BootstrapLEPs(std::vector<std::vector<LocEnAndPoss<D, N>>> const &bootstrapSamples, IntType boostrapSamples,
               Statistic stat) {
     std::vector<LocEnAndPoss<D, N>> bootstrapVector;
-    bootstrapVector.reserve(static_cast<long unsigned int>(numSamples));
+    bootstrapVector.reserve(static_cast<long unsigned int>(boostrapSamples));
 
-    std::generate_n(std::back_inserter(bootstrapVector), numSamples,
+    std::generate_n(std::back_inserter(bootstrapVector), boostrapSamples,
                     [&bootstrapSamples, &stat, currentSample = UIntType{0u}]() mutable {
                         const auto &sample = bootstrapSamples[currentSample];
                         ++currentSample;
@@ -302,11 +302,11 @@ Energy BlockingAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies) {
 //! @brief Samples dataset with replacement multiple times, then evaluates mean and standard deviation of
 //! each sample and takes the mean these values
 //! @param energies The energies and positions, where only the energies will be used
-//! @param numSamples The number of samples that will be generated
+//! @param boostrapSamples The number of samples that will be generated
 //! @param gen The random generator
 //! @return The mean and standard deviation of bootstrapped samples
 template <Dimension D, ParticNum N>
-Energy BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntType const &numSamples,
+Energy BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntType const &boostrapSamples,
                          RandomGenerator &gen) {
     IntType const numEnergies = static_cast<IntType>(std::ssize(energies));
     assert(numEnergies > 1);
@@ -314,11 +314,11 @@ Energy BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntTyp
 
     // Generate sample with replacement
     std::vector<std::vector<LocEnAndPoss<D, N>>> bootstrapSamples =
-        BootstrapSamples(energies, numEnergies, numSamples, gen, dist);
+        BootstrapSamples(energies, numEnergies, boostrapSamples, gen, dist);
 
     // Calculate std. dev. of each sample vector and place into bootstrapStdDevs
     std::vector<LocEnAndPoss<D, N>> bootstrapStdDevs =
-        BootstrapLEPs(bootstrapSamples, numSamples, Statistic::stdDev);
+        BootstrapLEPs(bootstrapSamples, boostrapSamples, Statistic::stdDev);
 
     Energy stdDev = GetStat(bootstrapStdDevs, Statistic::mean);
     return stdDev;
@@ -337,18 +337,18 @@ Energy BootstrapAnalysis(std::vector<LocEnAndPoss<D, N>> const &energies, IntTyp
 //! @brief Wrapper function called by the user, choose which statistical method to use
 //! @param energies The energies and positions, where only the energies will be used
 //! @param function The desired statistical method the user wants to apply to Monte Carlo data
-//! @param numSamples The number of samples that will be generated
+//! @param boostrapSamples The number of samples that will be generated
 //! @param gen The random generator
 //! @return The results (mean and standard deviation) of the desired statistical analysis
 template <Dimension D, ParticNum N>
 Energy Statistics(std::vector<LocEnAndPoss<D, N>> const &energies, StatFuncType function,
-                  IntType const &numSamples, RandomGenerator &gen) {
+                  IntType const &boostrapSamples, RandomGenerator &gen) {
     switch (function) {
     case StatFuncType::blocking:
         return BlockingAnalysis(energies);
         break;
     case StatFuncType::bootstrap:
-        return BootstrapAnalysis(energies, numSamples, gen);
+        return BootstrapAnalysis(energies, boostrapSamples, gen);
         break;
     case StatFuncType::regular:
         return StdDev(energies);

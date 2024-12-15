@@ -84,13 +84,15 @@ TEST_CASE("Testing the potential box") {
                     std::string const genericLogMes =
                         "mass: " + std::to_string(m_[0].val) + ", length: " + std::to_string(l_);
                     vmcp::FPType const derivativeStep = coordBound[0].Length().val / derivativeStepDenom;
+                    vmcp::Positions<1, 1> const startPoss = FindPeak_<1, 1>(
+                        wavefBox, vmcp::VarParams<0>{}, potBox, coordBound, points_peakSearch, rndGen);
 
                     {
                         // Metropolis update, analytical derivative
                         std::string const logMes = metrLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, laplBox, m_, potBox, coordBound, numEnergies,
-                            vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefBox, startPoss, vmcp::ParamBounds<0>{}, laplBox, m_, potBox, coordBound,
+                            numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -100,19 +102,20 @@ TEST_CASE("Testing the potential box") {
                         // Metropolis update, numerical derivative
                         std::string const logMes = metrLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potBox, coordBound,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefBox, startPoss, vmcp::ParamBounds<0>{}, false, derivativeStep, m_, potBox,
+                            coordBound, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
+
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
                     }
                     /* {
-                        // Impostance sampling update, analytical derivative
+                        // Importance sampling update, analytical derivative
                         std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, gradBox, laplBox, m_, potBox, coordBound,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefBox, startPoss, vmcp::ParamBounds<0>{}, gradBox, laplBox, m_, potBox,
+                    coordBound, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
@@ -122,8 +125,8 @@ TEST_CASE("Testing the potential box") {
                         // Importance sampling update, numerical derivative
                         std::string const logMes = impSampLogMes + ", " + numDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
-                            wavefBox, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potBox, coordBound,
-                            numEnergies, vmcp::StatFuncType::regular, numSamples, rndGen);
+                            wavefBox,startPoss, vmcp::ParamBounds<0>{}, true, derivativeStep, m_, potBox,
+                    coordBound, numEnergies, vmcp::StatFuncType::regular, bootstrapSamples, rndGen);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) < vmcEnergyTolerance, logMes);
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),

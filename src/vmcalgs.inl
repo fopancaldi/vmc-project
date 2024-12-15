@@ -9,9 +9,6 @@
 //! @see vmchelpers.inl
 //!
 
-// LF TODO: Update the documentation to also include 'function' and 'numSamples' (which could be renamed
-// to boostrapSamples?)
-
 #ifndef VMCPROJECT_VMCALGS_INL
 #define VMCPROJECT_VMCALGS_INL
 
@@ -48,27 +45,23 @@ namespace vmcp {
 //!
 //! Is the most important function of the library, since is the one which actually does the work.
 //! Starts from a point where the potential is sufficiently large, to quickly forget about the initial
-//! conditions. Does some updates to move away from the peak, then starts computing the local energies. In
-//! between two evaluations of the local energy, some updates are done to avoid correlations. Adjusts the step
-//! size on the fly to best match the target acceptance rate.
-//! Depending on 'useAnalytical' and 'useImpSamp', some parameters are unused.
-//! To avoid having the user supply some parameters he does not care about, wrappers that only ask for the
-//! necessary ones are provided.
+//! conditions. Does some updates to move away from the starting point, then starts computing the local
+//! energies. In between two evaluations of the local energy, some updates are done to avoid correlations.
+//! Adjusts the step size on the fly to best match the target acceptance rate. Depending on 'useAnalytical'
+//! and 'useImpSamp', some parameters are unused. To avoid having the user supply some parameters he does not
+//! care about, wrappers that only ask for the necessary ones are provided.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
 std::vector<LocEnAndPoss<D, N>>
-VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalytical, bool useImpSamp,
-                 Gradients<D, N, FirstDerivative> const &grads, Laplacians<N, Laplacian> const &lapls,
-                 FPType derivativeStep, Masses<N> masses, Potential const &pot, CoordBounds<D> bounds,
-                 IntType numEnergies, RandomGenerator &gen) {
+VMCLocEnAndPoss_(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> params, bool useAnalytical,
+                 bool useImpSamp, Gradients<D, N, FirstDerivative> const &grads,
+                 Laplacians<N, Laplacian> const &lapls, FPType derivativeStep, Masses<N> masses,
+                 Potential const &pot, CoordBounds<D> bounds, IntType numEnergies, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
     static_assert(IsWavefunctionDerivative<D, N, V, Laplacian>());
     static_assert(IsPotential<D, N, Potential>());
     assert(numEnergies > 0);
-
-    // Find a good starting point, in the sense that it's easy to move away from
-    Positions<D, N> const peak = FindPeak_<D, N>(wavef, params, pot, bounds, points_peakSearch, gen);
 
     // Choose the initial step
     Bound const smallestBound =
@@ -77,8 +70,6 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
         }));
     FPType step = smallestBound.Length().val / stepDenom_vmcLEPs;
 
-    // Save the energies to be averaged
-    Positions<D, N> poss = peak;
     std::function<Energy()> localEnergy;
     if (useAnalytical) {
         localEnergy = std::function<Energy()>{
@@ -89,8 +80,10 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
     }
     std::function<IntType()> update;
     if (useImpSamp) {
-        update = std::function<IntType()>{
-            [&]() { return ImportanceSamplingUpdate_<D, N>(wavef, params, grads, masses, poss, gen); }};
+        update = std::function<IntType()>{[&]() {
+            return ImportanceSamplingUpdate_<D, N>(wavef, params, useAnalytical, derivativeStep, grads,
+                                                   masses, poss, step, gen);
+        }};
     } else {
         update = std::function<IntType()>{
             [&]() { return MetropolisUpdate_<D, N>(wavef, params, poss, step, gen); }};
@@ -98,7 +91,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
 
     std::vector<LocEnAndPoss<D, N>> result;
     result.reserve(static_cast<long unsigned int>(numEnergies));
-    // Move away from the peak, in order to forget the dependence on the initial conditions
+    // Move away from the starting ponit, in order to forget the dependence on the initial conditions
     for (IntType i = 0; i != movesForgetICs_vmcLEPs; ++i) {
         update();
     }
@@ -137,7 +130,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, VarParams<V> params, bool useAnalyti
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class LocEnAndPossCalculator>
 VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wavef,
                              LocEnAndPossCalculator const &lepsCalc, StatFuncType function,
-                             IntType const &numSamples, RandomGenerator &gen) {
+                             IntType const &boostrapSamples, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
@@ -154,8 +147,6 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
     FPType gradStep = initialParamsNorm / stepDenom_gradDesc;
     std::array<FPType, V> oldMomentum;
     std::fill_n(oldMomentum.begin(), V, FPType{0});
-
-    std::cout << std::setprecision(10);
 
     for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
         // The gradient descent should end in a reasonable time
@@ -196,7 +187,7 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
         // Check the termination condition
         if (gradStep / currentParamsNorm < stoppingThreshold_gradDesc) {
             result.energy = currentEn;
-            result.stdDev = Statistics(currentLEPs, function, numSamples, gen);
+            result.stdDev = Statistics(currentLEPs, function, boostrapSamples, gen);
             result.bestParams = currentParams;
             break;
         } else {
@@ -223,7 +214,7 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class LocEnAndPossCalculator>
 VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
                              LocEnAndPossCalculator const &lepsCalc, IntType numWalkers,
-                             StatFuncType function, IntType const &numSamples, RandomGenerator &gen) {
+                             StatFuncType function, IntType const &boostrapSamples, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
@@ -232,7 +223,8 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
     if constexpr (V == VarParNum{0}) {
         VarParams<0u> const fakeParams{};
         std::vector<LocEnAndPoss<D, N>> const vmcLEPs = lepsCalc(fakeParams);
-        return VMCResult<0>{Mean(vmcLEPs), Statistics(vmcLEPs, function, numSamples, gen), VarParams<0>{}};
+        return VMCResult<0>{Mean(vmcLEPs), Statistics(vmcLEPs, function, boostrapSamples, gen),
+                            VarParams<0>{}};
     } else {
         std::mutex m;
         std::uniform_real_distribution<FPType> unif(0, 1);
@@ -248,7 +240,8 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
             for (VarParNum v = 0u; v != V; ++v) {
                 initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(localGen);
             }
-            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, numSamples, localGen);
+            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, boostrapSamples,
+                                            localGen);
         });
 
         return *std::min_element(
@@ -280,9 +273,9 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
 //!
 //! Wrapper for the true 'VMCLocEnAndPoss'.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
-std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarParams<V> params,
-                                                Laplacians<N, Laplacian> const &lapls, Masses<N> masses,
-                                                Potential const &pot, CoordBounds<D> bounds,
+std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, Positions<D, N> poss,
+                                                VarParams<V> params, Laplacians<N, Laplacian> const &lapls,
+                                                Masses<N> masses, Potential const &pot, CoordBounds<D> bounds,
                                                 IntType numEnergies, RandomGenerator &gen) {
     struct FakeDeriv {
         FPType operator()(Positions<D, N> const &, VarParams<V>) const {
@@ -292,8 +285,8 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
     };
     Gradients<D, N, FakeDeriv> fakeGrads;
     FPType const fakeStep = std::numeric_limits<FPType>::quiet_NaN();
-    return VMCLocEnAndPoss_<D, N, V>(wavef, params, true, false, fakeGrads, lapls, fakeStep, masses, pot,
-                                     bounds, numEnergies, gen);
+    return VMCLocEnAndPoss_<D, N, V>(wavef, poss, params, true, false, fakeGrads, lapls, fakeStep, masses,
+                                     pot, bounds, numEnergies, gen);
 }
 
 //! @brief Computes the energy with error, by using the analytical formula for the derivative and the
@@ -311,15 +304,15 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
 //!
 //! Wrapper for 'VMCLocEnAndPoss'.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Laplacian, class Potential>
-VMCResult<V> VMCEnergy(Wavefunction const &wavef, ParamBounds<V> parBounds,
+VMCResult<V> VMCEnergy(Wavefunction const &wavef, Positions<D, N> poss, ParamBounds<V> parBounds,
                        Laplacians<N, Laplacian> const &lapls, Masses<N> masses, Potential const &pot,
                        CoordBounds<D> coorBounds, IntType numEnergies, StatFuncType function,
-                       IntType const &numSamples, RandomGenerator &gen) {
+                       IntType const &boostrapSamples, RandomGenerator &gen) {
     auto const enPossCalculator{[&](VarParams<V> vps) {
-        return VMCLocEnAndPoss<D, N, V>(wavef, vps, lapls, masses, pot, coorBounds, numEnergies, gen);
+        return VMCLocEnAndPoss<D, N, V>(wavef, poss, vps, lapls, masses, pot, coorBounds, numEnergies, gen);
     }};
     return VMCRBestParams_<D, N, V>(parBounds, wavef, enPossCalculator, numWalkers_gradDesc, function,
-                                    numSamples, gen);
+                                    boostrapSamples, gen);
 }
 
 //! @brief Computes the energies that will be averaged by using the analytical formula for the derivative and
@@ -340,12 +333,13 @@ VMCResult<V> VMCEnergy(Wavefunction const &wavef, ParamBounds<V> parBounds,
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
 std::vector<LocEnAndPoss<D, N>>
-VMCLocEnAndPoss(Wavefunction const &wavef, VarParams<V> params, Gradients<D, N, FirstDerivative> const &grads,
-                Laplacians<N, Laplacian> const &lapls, Masses<N> masses, Potential const &pot,
-                CoordBounds<D> bounds, IntType numEnergies, RandomGenerator &gen) {
+VMCLocEnAndPoss(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> params,
+                Gradients<D, N, FirstDerivative> const &grads, Laplacians<N, Laplacian> const &lapls,
+                Masses<N> masses, Potential const &pot, CoordBounds<D> bounds, IntType numEnergies,
+                RandomGenerator &gen) {
     FPType const fakeStep = std::numeric_limits<FPType>::quiet_NaN();
-    return VMCLocEnAndPoss_<D, N, V>(wavef, params, true, false, grads, lapls, fakeStep, masses, pot, bounds,
-                                     numEnergies, gen);
+    return VMCLocEnAndPoss_<D, N, V>(wavef, poss, params, true, true, grads, lapls, fakeStep, masses, pot,
+                                     bounds, numEnergies, gen);
 }
 
 //! @brief Computes the energy with error, by using the analytical formula for the derivative and the
@@ -365,15 +359,16 @@ VMCLocEnAndPoss(Wavefunction const &wavef, VarParams<V> params, Gradients<D, N, 
 //! Wrapper for 'VMCLocEnAndPoss'.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative, class Laplacian,
           class Potential>
-VMCResult<V> VMCEnergy(Wavefunction const &wavef, ParamBounds<V> parBounds,
+VMCResult<V> VMCEnergy(Wavefunction const &wavef, Positions<D, N> poss, ParamBounds<V> parBounds,
                        Gradients<D, N, FirstDerivative> const &grads, Laplacians<N, Laplacian> const &lapls,
                        Masses<N> masses, Potential const &pot, CoordBounds<D> coorBounds, IntType numEnergies,
-                       StatFuncType function, IntType const &numSamples, RandomGenerator &gen) {
+                       StatFuncType function, IntType const &boostrapSamples, RandomGenerator &gen) {
     auto const enPossCalculator{[&](VarParams<V> vps) {
-        return VMCLocEnAndPoss<D, N, V>(wavef, vps, grads, lapls, masses, pot, coorBounds, numEnergies, gen);
+        return VMCLocEnAndPoss<D, N, V>(wavef, poss, vps, grads, lapls, masses, pot, coorBounds, numEnergies,
+                                        gen);
     }};
     return VMCRBestParams_<D, N, V>(parBounds, wavef, enPossCalculator, numWalkers_gradDesc, function,
-                                    numSamples, gen);
+                                    boostrapSamples, gen);
 }
 
 //! @brief Computes the energies that will be averaged by numerically estimating the derivative and using
@@ -393,9 +388,9 @@ VMCResult<V> VMCEnergy(Wavefunction const &wavef, ParamBounds<V> parBounds,
 //!
 //! Wrapper for the true 'VMCLocEnAndPoss'.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarParams<V> params,
-                                                bool useImpSamp, FPType derivativeStep, Masses<N> masses,
-                                                Potential const &pot, CoordBounds<D> bounds,
+std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, Positions<D, N> poss,
+                                                VarParams<V> params, bool useImpSamp, FPType derivativeStep,
+                                                Masses<N> masses, Potential const &pot, CoordBounds<D> bounds,
                                                 IntType numEnergies, RandomGenerator &gen) {
     struct FakeDeriv {
         FPType operator()(Positions<D, N> const &, VarParams<V>) const {
@@ -405,10 +400,11 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
     };
     Gradients<D, N, FakeDeriv> fakeGrads;
     std::array<FakeDeriv, N> fakeLapls;
-    return VMCLocEnAndPoss_<D, N, V>(wavef, params, false, useImpSamp, fakeGrads, fakeLapls, derivativeStep,
-                                     masses, pot, bounds, numEnergies, gen);
+    return VMCLocEnAndPoss_<D, N, V>(wavef, poss, params, false, useImpSamp, fakeGrads, fakeLapls,
+                                     derivativeStep, masses, pot, bounds, numEnergies, gen);
 }
 
+// FP TODO: derivativeStep is not in params documentation
 //! @brief Computes the energy with error, by numerically estimating the derivative and using either the
 //! Metropolis or the importance sampling algorithm, after finding the best parameter
 //! @param wavef The wavefunction
@@ -426,16 +422,16 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, VarPa
 //!
 //! Wrapper for 'VMCLocEnAndPoss'.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class Potential>
-VMCResult<V> VMCEnergy(Wavefunction const &wavef, ParamBounds<V> parBounds, bool useImpSamp,
-                       FPType derivativeStep, Masses<N> masses, Potential const &pot,
+VMCResult<V> VMCEnergy(Wavefunction const &wavef, Positions<D, N> poss, ParamBounds<V> parBounds,
+                       bool useImpSamp, FPType derivativeStep, Masses<N> masses, Potential const &pot,
                        CoordBounds<D> coorBounds, IntType numEnergies, StatFuncType function,
-                       IntType const &numSamples, RandomGenerator &gen) {
+                       IntType const &boostrapSamples, RandomGenerator &gen) {
     auto const enPossCalculator{[&](VarParams<V> vps) {
-        return VMCLocEnAndPoss<D, N, V>(wavef, vps, useImpSamp, derivativeStep, masses, pot, coorBounds,
+        return VMCLocEnAndPoss<D, N, V>(wavef, poss, vps, useImpSamp, derivativeStep, masses, pot, coorBounds,
                                         numEnergies, gen);
     }};
     return VMCRBestParams_<D, N, V>(parBounds, wavef, enPossCalculator, numWalkers_gradDesc, function,
-                                    numSamples, gen);
+                                    boostrapSamples, gen);
 }
 
 //! @}
