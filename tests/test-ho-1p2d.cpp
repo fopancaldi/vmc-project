@@ -25,8 +25,8 @@ TEST_CASE("Testing the harmonic oscillator") {
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Masses<1> const mInit{1.f};
         vmcp::FPType const omegaInit = 1;
-        vmcp::Mass const mStep{0.2f};
-        vmcp::FPType const omegaStep = 0.2f;
+        vmcp::Mass const mStep{0.1f};
+        vmcp::FPType const omegaStep = 0.1f;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const omegaIterations = iterations;
         struct PotHO {

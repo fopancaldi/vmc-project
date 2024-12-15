@@ -27,11 +27,11 @@ TEST_CASE("Testing the harmonic oscillator") {
         std::array<vmcp::FPType, 2> const omegaInit{1.f, 5.f};
         std::array<vmcp::Mass, 2> const mInitVP{mInit[0], mInit[0]};
         std::array<vmcp::FPType, 2> const omegaInitVP{omegaInit[0], omegaInit[0]};
-        vmcp::Mass const m1Step{0.2f};
-        vmcp::Mass const m2Step{0.4f};
+        vmcp::Mass const m1Step{0.1f};
+        vmcp::Mass const m2Step{0.5f};
         vmcp::Mass const mStepVP = m1Step;
-        vmcp::FPType const omega1Step = 0.2f;
-        vmcp::FPType const omega2Step = 0.4f;
+        vmcp::FPType const omega1Step = 0.1f;
+        vmcp::FPType const omega2Step = 0.5f;
         vmcp::FPType const omegaStepVP = omega1Step;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const omegaIterations = iterations;

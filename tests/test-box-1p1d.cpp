@@ -25,8 +25,8 @@ TEST_CASE("Testing the potential box") {
         vmcp::RandomGenerator rndGen{seed};
         vmcp::Masses<1> const mInit{1.f};
         vmcp::FPType const lInit = 1;
-        vmcp::Mass const mStep{0.2f};
-        vmcp::FPType const lStep = 0.2f;
+        vmcp::Mass const mStep{0.1f};
+        vmcp::FPType const lStep = 0.1f;
         vmcp::IntType const mIterations = iterations;
         vmcp::IntType const lIterations = iterations;
         auto potBox{[](vmcp::Positions<1, 1>) -> vmcp::FPType { return 0; }};
