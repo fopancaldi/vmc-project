@@ -144,7 +144,6 @@ Positions<D, N> BuildFCCStartPoint_(CoordBounds<D> bounds, FPType latticeSpacing
 //! @return The Canvas containing the plot
 template <Dimension D, ParticNum N>
 sciplot::Canvas MakeGraphNoInt(std::vector<FPType> const &alphaVals, std::vector<FPType> const &energyVals,
-                               std::vector<FPType> const &errorVals,
                                std::vector<ConfInterval> const &confInts,
                                std::vector<FPType> const &exactEns) {
     // Manipulate confidence intervals
@@ -165,13 +164,7 @@ sciplot::Canvas MakeGraphNoInt(std::vector<FPType> const &alphaVals, std::vector
     plot.drawErrorBarsY(alphaVals, energyVals, confIntErr)
         .lineColor("#FF6347") // Tomato red
         .lineWidth(1)
-        .lineType(1)
         .label("Conf Int with 95% Conf Lvl");
-
-    plot.drawErrorBarsY(alphaVals, energyVals, errorVals)
-        .lineColor("#FF0000") // Red
-        .lineWidth(1)
-        .label("StdDev");
 
     plot.drawCurve(sciplot::linspace(0.2, 0.8, 100), exactEns)
         .lineColor("#3CB371") // Medium Sea Green
@@ -189,7 +182,7 @@ sciplot::Canvas MakeGraphNoInt(std::vector<FPType> const &alphaVals, std::vector
 //! @param energyVals The energies
 //! @param errorVals The standard deviations of energies
 void DrawGraphInt(std::vector<IntType> const &NVals, std::vector<FPType> const &energyVals,
-                  std::vector<FPType> const &errorVals, std::vector<ConfInterval> const &confInts) {
+                  std::vector<ConfInterval> const &confInts) {
     // Manipulate confidence intervals
     std::vector<FPType> confIntErr(confInts.size());
     std::transform(confInts.begin(), confInts.end(), confIntErr.begin(),
@@ -219,17 +212,24 @@ void DrawGraphInt(std::vector<IntType> const &NVals, std::vector<FPType> const &
         .lineType(1)
         .label("Conf Int with 95% Conf Lvl");
 
-    plot.drawErrorBarsY(NVals, energyVals, errorVals)
-        .lineColor("#FF0000") // Red
-        .lineWidth(1)
-        .label("StdDev");
-
     plot.grid().lineWidth(1).lineColor("#9370DB").show(); // Lavender purple
 
     sciplot::Figure fig = {{plot}};
     sciplot::Canvas canvas = {{fig}};
 
     canvas.save(file);
+}
+
+constexpr vmcp::FPType minParamFactor = 0.33f;
+constexpr vmcp::FPType maxParamFactor = 3;
+constexpr vmcp::VarParam maxParDiff{5};
+// Computes an interval for a variational parameter which is fairly large but allows the gradient descent to
+// converge in a reasonable time
+inline vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFactor,
+                                             vmcp::FPType highFactor, vmcp::VarParam maxDiff) {
+    vmcp::VarParam const low{std::max(param.val * lowFactor, param.val - maxDiff.val)};
+    vmcp::VarParam const high{std::min(param.val * highFactor, param.val + maxDiff.val)};
+    return vmcp::Bound<vmcp::VarParam>{low, high};
 }
 
 //! @}

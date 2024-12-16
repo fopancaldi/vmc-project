@@ -63,15 +63,12 @@ void HONoInt(vmcp::StatFuncType statFunction) {
             Coordinate *end = &x[0][0] + N * D;
 
             FPType expArg = std::transform_reduce(
-                begin, end, FPType{0}, std::plus<>(), [alpha_ = alpha, beta_ = beta, &begin](Coordinate &c) {
+                begin, end, FPType{0}, std::plus<>(), [beta_ = beta, &begin](Coordinate &c) {
                     auto const index = &c - begin;
                     bool isLastDimension = ((static_cast<UIntType>(index) + 1u) % D == 0) && (D != 1);
-                    /* std::cout << "Wavef contrib: " << alpha_ * c.val * c.val * (isLastDimension ? beta_ :
-                       1)
-                               << '\n';*/
                     return c.val * c.val * (isLastDimension ? beta_ : 1);
                 });
-            // std::cout << "\n\n";
+
             return std::exp(-alpha * expArg);
         }
     };
@@ -176,9 +173,6 @@ void HONoInt(vmcp::StatFuncType statFunction) {
         });
 
         Positions<D, N> startPoss = BuildFCCStartPoint_<D, N>(coordBounds, latticeSpacing);
-        /* for (Position<D> p : startPoss) {
-             std::cout << "x: " << p[0].val << "    y: " << p[1].val << "    z: " << p[2].val << "\n";
-         }*/
 
         // Analaytic
         VMCResult<0> const vmcrMetrAn =
@@ -234,18 +228,18 @@ void HONoInt(vmcp::StatFuncType statFunction) {
 
     // Analaytic
     sciplot::Canvas canvasMetrAn =
-        MakeGraphNoInt<D, N>(alphaVals, energyValsMetrAn, confIntsMetrAn, exactEns);
+        MakeGraphNoInt<D, N>(alphaVals, energyValsMetrAn, errorValsMetrAn, confIntsMetrAn, exactEns);
     sciplot::Canvas canvasImpSampAn =
-        MakeGraphNoInt<D, N>(alphaVals, energyValsImpSampAn, confIntsImpSampAn, exactEns);
+        MakeGraphNoInt<D, N>(alphaVals, energyValsImpSampAn, errorValsImpSampAn, confIntsImpSampAn, exactEns);
 
     canvasMetrAn.save(metrAnFile);
     canvasImpSampAn.save(impSampAnFile);
 
     // Numeric
     sciplot::Canvas canvasMetrNum =
-        MakeGraphNoInt<D, N>(alphaVals, energyValsMetrNum, confIntsMetrNum, exactEns);
-    sciplot::Canvas canvasImpSampNum =
-        MakeGraphNoInt<D, N>(alphaVals, energyValsImpSampNum, confIntsImpSampNum, exactEns);
+        MakeGraphNoInt<D, N>(alphaVals, energyValsMetrNum, errorValsMetrNum, confIntsMetrNum, exactEns);
+    sciplot::Canvas canvasImpSampNum = MakeGraphNoInt<D, N>(
+        alphaVals, energyValsImpSampNum, errorValsImpSampNum, confIntsImpSampNum, exactEns);
 
     canvasMetrAn.save(metrNumFile);
     canvasImpSampAn.save(impSampNumFile);
@@ -284,10 +278,9 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
         }
     };
     struct WavefHO {
-        FPType alpha;
         FPType beta;
         FPType a;
-        FPType operator()(Positions<D, N> x, VarParams<0>) const {
+        FPType operator()(Positions<D, N> x, VarParams<1> alpha) const {
             //   Harmonic oscillator term
             Coordinate *begin = &x[0][0];
             Coordinate *end = &x[0][0] + N * D;
@@ -312,24 +305,22 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
                 }
             }
             assert(!std::isnan(interactionTerm));
-            // std::cout << "W: " << std::exp(-alpha * expArg + interactionTerm) << "\n";
-            return std::exp(-alpha * expArg + interactionTerm);
+
+            return std::exp(-alpha[0].val * expArg + interactionTerm);
         }
     };
     struct LaplHO {
-        FPType alpha;
         FPType beta;
         FPType a;
         UIntType particle;
 
-        LaplHO(FPType alpha_, FPType beta_, FPType a_, UIntType particle_)
-            : alpha{alpha_}, beta{beta_}, a{a_}, particle{particle_} {
+        LaplHO(FPType beta_, FPType a_, UIntType particle_) : beta{beta_}, a{a_}, particle{particle_} {
             assert(particle < N);
         }
 
-        LaplHO() : alpha{}, beta{}, a{}, particle{} {}
+        LaplHO() : beta{}, a{}, particle{} {}
 
-        FPType operator()(Positions<D, N> x, VarParams<0>) const {
+        FPType operator()(Positions<D, N> x, VarParams<1> alpha) const {
             UIntType uPar = particle;
             Coordinate *begin = &x[uPar][0];
             Coordinate *end = &x[uPar][0] + D;
@@ -342,11 +333,11 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
                     bool isLastDimension = ((static_cast<UIntType>(index) + 1u) % D_ == 0) && (D_ != 1);
                     return c.val * c.val * (isLastDimension ? beta_ * beta_ : 1);
                 });
-            FPType phiK = std::exp(-alpha * sumXSqrd);
-            // std::cout << "alpha: " << alpha << "\n";
+            FPType phiK = std::exp(-alpha[0].val * sumXSqrd);
 
-            FPType nonIntLapl =
-                (std::pow(2 * alpha, 2) * sumXSqrd - 2 * alpha * ((D == 1) ? 1 : (D - 1 + beta))) * phiK;
+            FPType nonIntLapl = (std::pow(2 * alpha[0].val, 2) * sumXSqrd -
+                                 2 * alpha[0].val * ((D == 1) ? 1 : (D - 1 + beta))) *
+                                phiK;
             assert(!std::isnan(nonIntLapl));
 
             std::vector<FPType> gradHO(D);
@@ -355,7 +346,7 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
 
             std::generate_n(std::back_inserter(gradHO), D, [&, d = Dimension{0u}]() mutable {
                 FPType result =
-                    -2 * alpha * x[particle][d].val * ((d == (D - 1)) && (D != 1) ? beta : 1) * phiK;
+                    -2 * alpha[0].val * x[particle][d].val * ((d == (D - 1)) && (D != 1) ? beta : 1) * phiK;
                 d++;
                 return result;
             });
@@ -365,7 +356,6 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
                 }
                 std::generate_n(std::back_inserter(gradInt), D, [&, d = 0u]() mutable {
                     FPType r_pn = Distance(x[particle], x[n]);
-                    assert(r_pn > a);
                     FPType u_pnPrime = a / (r_pn * (r_pn - a));
                     FPType result = (x[particle][d].val - x[n][d].val) * u_pnPrime / r_pn;
                     d++;
@@ -382,7 +372,9 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
                     continue;
                 }
                 FPType r_pn = Distance(x[particle], x[n]);
-                assert(r_pn > a);
+                if (r_pn <= a) {
+                    return FPType{0.f};
+                }
 
                 FPType u_pnPrime = a / (r_pn * (r_pn - a));
                 FPType u_pnPrime2 = (a * a - 2 * a * r_pn) / std::pow(r_pn * (r_pn - a), 2);
@@ -397,10 +389,11 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
                 std::inner_product(intVector.begin(), intVector.end(), intVector.begin(), FPType{0.f});
             assert(!std::isnan(pureIntTerms));
 
-            FPType result = WavefHO{alpha, beta, a}(x, VarParams<0>{}) *
+            FPType result = WavefHO{beta, a}(x, VarParams<1>{alpha}) *
                             ((nonIntLapl + 2 * innerProd) / phiK + pureIntTerms);
             assert(!std::isnan(result));
-            // std::cout << "Lapl: " << result << "\n";
+            // std::cout << "NIL: " << nonIntLapl << "\n";
+            //  std::cout << "Lapl: " << result << "\n";
 
             return result;
         }
@@ -410,16 +403,19 @@ void HOInt(vmcp::StatFuncType statFunction, std::vector<vmcp::FPType> &energyVal
     mass.fill(M);
 
     PotHO potHO{mass, OmegaHO, Gamma};
-    WavefHO wavefHO{0.5f, Beta, ADistance};
+    WavefHO wavefHO{Beta, ADistance};
     std::array<LaplHO, N> laplHO;
     std::generate(laplHO.begin(), laplHO.end(),
-                  [counter = ParticNum{0}]() mutable { return LaplHO{0.5f, Beta, ADistance, counter++}; });
+                  [counter = ParticNum{0}]() mutable { return LaplHO{Beta, ADistance, counter++}; });
 
-    Positions<D, N> startPoss = BuildFCCStartPoint_<D, N>(coordBounds, 2 * latticeSpacing);
+    Positions<D, N> startPoss = BuildFCCStartPoint_<D, N>(coordBounds, latticeSpacing);
 
-    VMCResult<0> const vmcrBest =
-        VMCEnergy<D, N, 0>(wavefHO, startPoss, ParamBounds<0>{}, laplHO, mass, potHO, coordBounds,
-                           numEnergies, statFunction, bootstrapSamples, gen);
+    // One variational parameter
+    ParamBounds<1> const alphaBounds{Bound{VarParam{0.1f}, VarParam{2}}};
+
+    VMCResult<1> const vmcrBest =
+        VMCEnergy<D, N, 1>(wavefHO, startPoss, alphaBounds, laplHO, mass, potHO, coordBounds, numEnergies,
+                           statFunction, bootstrapSamples, gen);
     ConfInterval confInt = GetConfInt(vmcrBest.energy, vmcrBest.stdDev, confLvl);
     std::cout << "Energy with the best alpha for N=" + std::to_string(N) + ":\n"
               << std::setprecision(3) << "Energy: " << std::setprecision(5) << vmcrBest.energy << " +/- "
@@ -435,28 +431,28 @@ int main() {
     vmcp::StatFuncType statFunction = vmcp::StatFuncType::bootstrap;
 
     // Non interacting plots of energy as a function of (non variational) parameter alpha
+    HONoInt<3, 5>(statFunction);
     // HONoInt<3, 10>(statFunction);
-    // HONoInt<3, 20>(statFunction);
-    // HONoInt<3, 30>(statFunction);
-    HONoInt<3, 1>(statFunction);
     // HONoInt<3, 50>(statFunction);
 
     // Interacting plots of energy as a function of the number of particles using alpha as a variational
     // parameter
     std::vector<vmcp::FPType> energyVals;
+    std::vector<vmcp::FPType> errorVals;
     std::vector<vmcp::ConfInterval> confInts;
     std::vector<vmcp::IntType> NVals;
 
-    // HOInt<3, 5>(statFunction, energyVals, confInts, NVals);
-    //  HOInt<3, 10>(statFunction, energyVals, errorVals, confInts, NVals);
-    // HOInt<3, 15>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 20>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 25>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 30>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 35>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 40>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 45>(statFunction, energyVals, confInts, NVals);
-    // HOInt<3, 50>(statFunction, energyVals, confInts, NVals);
+    // HOInt<3, 10>(statFunction, energyVals, confInts, NVals);
+    /*HOInt<3, 5>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 10>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 15>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 20>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 25>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 30>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 35>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 40>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 45>(statFunction, energyVals, confInts, NVals);
+     HOInt<3, 50>(statFunction, energyVals, confInts, NVals);*/
 
-    // vmcp::DrawGraphInt(NVals, energyVals,  confInts);
+    vmcp::DrawGraphInt(NVals, energyVals, confInts);
 }

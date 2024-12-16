@@ -126,6 +126,9 @@ template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
 IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positions<D, N> &poss, FPType step,
                           RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
+    // std::cout << "wavef: " << wavef(poss, params) << '\n';
+    //  std::cout << "pos[0]: " << poss[0][0].val << '\n';
+    assert(wavef(poss, params) > 1e-12);
 
     IntType succesfulUpdates = 0;
     for (Position<D> &p : poss) {
@@ -136,6 +139,7 @@ IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positi
             // FP TODO: Convert step to Coordinate?
             return c + Coordinate{(unif(gen) - FPType{0.5f}) * step};
         });
+        std::cout << "frac: " << wavef(poss, params) / oldPsi << '\n';
         if (unif(gen) < std::pow(wavef(poss, params) / oldPsi, 2)) {
             ++succesfulUpdates;
         } else {
@@ -159,14 +163,13 @@ IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positi
 //! @param gen The random generator
 //! @return The number of successful updates
 //!
-//! This function applies formulas in the end of section 1.4.3 of Nuclear Many-body Physics - a Computational
-//! Approach - Monte Carlo methods, Morten Hjorth-Jensen.
+//! This function applies formulas in the end of section 1.4.3 of Nuclear Many-body Physics -
+//! a Computational Approach - Monte Carlo methods, Morten Hjorth-Jensen.
 //! It attempts to update the position of each particle once, sequentially.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class FirstDerivative>
 IntType ImportanceSamplingUpdate_(Wavefunction const &wavef, VarParams<V> params, bool useAnalytical,
                                   FPType derivativeStep, Gradients<D, N, FirstDerivative> const &grads,
-                                  Masses<N> masses, Positions<D, N> &poss, FPType step,
-                                  RandomGenerator &gen) {
+                                  Masses<N> masses, Positions<D, N> &poss, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(IsWavefunctionDerivative<D, N, V, FirstDerivative>());
 
@@ -190,8 +193,10 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &wavef, VarParams<V> params
         // Jensen in his notes, section 1.4.3, suggests a value between 0.001 and 0.01
         FPType const timeStep = 0.005;
 
-        // Variance is choosen such that the average length of the random part of the jump equals step
-        std::normal_distribution<FPType> normal(0, step / (2 * std::sqrt(2 * std::numbers::pi_v<FPType>)));
+        /* // Variance is choosen such that the average length of the random part of the jump equals step
+         std::normal_distribution<FPType> normal(
+             0, std::pow(step / (4 * std::sqrt(std::numbers::pi_v<FPType>)), 1.f / 3));*/
+        std::normal_distribution<FPType> normal(0, 1);
 
         for (Dimension d = 0u; d != D; ++d) {
             p[d].val = oldPos[d].val + diffConsts[n] * timeStep * oldDriftForce[n][d] +

@@ -67,7 +67,7 @@ constexpr IntType stepDenom_gradDesc = 100;
 //! @brief When the gradient divided by the parameters' norm is smaller than this, stop the gradient descent
 constexpr FPType stoppingThreshold_gradDesc = 1e-9f;
 //! @brief Number of independent gradient descents carried out simultaneously
-constexpr IntType numWalkers_gradDesc = 8;
+constexpr IntType numWalkers_gradDesc = 1;
 // FP TODO: Rename this one, and document
 constexpr IntType stepDenom_vmcLEPs = 100;
 //! @brief Number of updates after which the sampled local energies are uncorrelated
