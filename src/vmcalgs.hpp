@@ -68,7 +68,7 @@ constexpr IntType stepDenom_gradDesc = 100;
 constexpr FPType stoppingThreshold_gradDesc = 1e-2f;
 //! @brief Number of independent gradient descents carried out simultaneously
 constexpr IntType numWalkers_gradDesc = 1;
-// FP TODO: Rename this one, and document
+//! @brief Denominator used to determine the initial step size from the length of the smallest integration region
 constexpr IntType stepDenom_vmcLEPs = 100;
 //! @brief Number of updates after which the sampled local energies are uncorrelated
 //! @see VMCLocEnAndPoss

@@ -113,8 +113,6 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> p
     return result;
 }
 
-// FP TODO: step should be a var. param.
-
 //! @brief Computes the energy with error, with the parameters that minimize the former
 //! @param initialParams The initial variational parameters
 //! @param wavef The wavefunction
@@ -168,7 +166,6 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, ParamBounds<V> bounds, 
         std::generate_n(currentMomentum.begin(), V,
                         [v = VarParNum{0}, &energiesIncreasedParam, &energiesDecreasedParam, &oldMomentum,
                          gradStep]() mutable {
-                            // FP TODO: Magic
                             FPType const result_ =
                                 -FPType{3} / 4 *
                                     (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) /
@@ -415,7 +412,6 @@ std::vector<LocEnAndPoss<D, N>> VMCLocEnAndPoss(Wavefunction const &wavef, Posit
                                      derivativeStep, masses, pot, bounds, numEnergies, gen);
 }
 
-// FP TODO: derivativeStep is not in params documentation
 //! @brief Computes the energy with error, by numerically estimating the derivative and using either the
 //! Metropolis or the importance sampling algorithm, after finding the best parameter
 //! @param wavef The wavefunction

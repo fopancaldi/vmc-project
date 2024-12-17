@@ -78,14 +78,11 @@ vmcp::Positions<D, N> FindPeak_(Wavefunction const &wavef, vmcp::VarParams<V> pa
     Position<D> center;
     std::transform(bounds.begin(), bounds.end(), center.begin(),
                    [](Bound<Coordinate> b) { return (b.upper + b.lower) / 2; });
-    // FP TODO: Can you make it more elegant?
     Positions<D, N> result;
     std::fill(result.begin(), result.end(), center);
     std::uniform_real_distribution<FPType> unif(0, 1);
     std::mutex m;
     auto const indices = std::ranges::views::iota(0, numPoints);
-    // FP TODO: Data race in unif(gen)
-    // Maybe put another mutex? Deadlock risk?
     std::for_each(std::execution::par, indices.begin(), indices.end(), [&](int) {
         Positions<D, N> newPoss;
         for (Position<D> &p : newPoss) {

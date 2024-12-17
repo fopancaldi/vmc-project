@@ -7,16 +7,6 @@
 //! @see vmcalgs.inl
 //!
 
-// TODO: remove all those damn unserscores
-// The functions that have a trailing underscore would, in a regular project, be (declared and) defined in a
-// .cpp file, therefore making them unreachable for the user
-// Since they are templated, they must be defined in a header
-
-// FP TODO: For example in FindPeak_, is it really necessary to specify Position<D>?
-// In general, study class template argument deduction
-// Also I believe you are putting too many (), for example: in assert((i / 2) == 3), are the brackets
-// necessary? Study
-
 #ifndef VMCPROJECT_VMCHELPERS_INL
 #define VMCPROJECT_VMCHELPERS_INL
 
@@ -134,7 +124,6 @@ IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positi
         FPType const oldPsi = wavef(poss, params);
         std::uniform_real_distribution<FPType> unif(0, 1);
         std::transform(p.begin(), p.end(), p.begin(), [&gen, &unif, step](Coordinate c) {
-            // FP TODO: Convert step to Coordinate?
             return c + Coordinate{(unif(gen) - FPType{0.5f}) * step};
         });
         if (unif(gen) < std::pow(wavef(poss, params) / oldPsi, 2)) {
@@ -345,7 +334,6 @@ std::array<Energy, V> ReweightedEnergies_(Wavefunction const &wavef, VarParams<V
                                           std::vector<LocEnAndPoss<D, N>> oldLEPs, FPType step) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
 
-    // FP TODO: step -> VarParam?
     std::array<Energy, V> result;
     std::generate_n(result.begin(), V, [&, v = VarParNum{0u}]() mutable {
         VarParams<V> newParams = oldParams;
