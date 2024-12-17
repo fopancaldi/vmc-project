@@ -24,7 +24,7 @@ TEST_CASE("Testing Statistics") {
     SUBCASE("Testing EvalBlocking") {
         std::vector<vmcp::LocEnAndPoss<1, 1>> testEnergies = {
             {vmcp::Energy{1}, 0}, {vmcp::Energy{2}, 0}, {vmcp::Energy{3}, 0}, {vmcp::Energy{4}, 0}};
-        vmcp::BlockingResult blockingResults = EvalBlocking(testEnergies, 4);
+        vmcp::BlockingResult blockingResults = EvalBlocking(testEnergies);
         CHECK(blockingResults.means[0].val == vmcp::FPType{2.5f});
         CHECK(std::abs(blockingResults.stdDevs[0].val - 1) < statisticsTolerance);
     }
