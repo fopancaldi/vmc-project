@@ -126,8 +126,6 @@ template <Dimension D, ParticNum N, VarParNum V, class Wavefunction>
 IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positions<D, N> &poss, FPType step,
                           RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
-    // std::cout << "wavef: " << wavef(poss, params) << '\n';
-    //  std::cout << "pos[0]: " << poss[0][0].val << '\n';
     assert(wavef(poss, params) > 1e-12);
 
     IntType succesfulUpdates = 0;
@@ -139,7 +137,6 @@ IntType MetropolisUpdate_(Wavefunction const &wavef, VarParams<V> params, Positi
             // FP TODO: Convert step to Coordinate?
             return c + Coordinate{(unif(gen) - FPType{0.5f}) * step};
         });
-        std::cout << "frac: " << wavef(poss, params) / oldPsi << '\n';
         if (unif(gen) < std::pow(wavef(poss, params) / oldPsi, 2)) {
             ++succesfulUpdates;
         } else {
@@ -193,9 +190,6 @@ IntType ImportanceSamplingUpdate_(Wavefunction const &wavef, VarParams<V> params
         // Jensen in his notes, section 1.4.3, suggests a value between 0.001 and 0.01
         FPType const timeStep = 0.005;
 
-        /* // Variance is choosen such that the average length of the random part of the jump equals step
-         std::normal_distribution<FPType> normal(
-             0, std::pow(step / (4 * std::sqrt(std::numbers::pi_v<FPType>)), 1.f / 3));*/
         std::normal_distribution<FPType> normal(0, 1);
 
         for (Dimension d = 0u; d != D; ++d) {
@@ -379,6 +373,21 @@ std::array<Energy, V> ReweightedEnergies_(Wavefunction const &wavef, VarParams<V
         return num / den;
     });
     return result;
+}
+
+//! @brief Computes an interval for a variational parameter which is fairly large but allows the gradient
+//! descent to converge in a reasonable time
+//! @param param The variational parameter
+//! @param lowFactor A factor used to decrement the value of the variational parameter
+//! @param highFactor A factor used to increment the value of the variational parameter
+//! @param maxDiff The maximum distance allowed between the value of the variational parameters and the
+//! value of a bound
+//! @return The interval for the variational parameter
+inline vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFactor,
+                                             vmcp::FPType highFactor, vmcp::VarParam maxDiff) {
+    vmcp::VarParam const low{std::max(param.val * lowFactor, param.val - maxDiff.val)};
+    vmcp::VarParam const high{std::min(param.val * highFactor, param.val + maxDiff.val)};
+    return vmcp::Bound<vmcp::VarParam>{low, high};
 }
 
 //! @}

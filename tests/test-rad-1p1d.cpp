@@ -138,7 +138,7 @@ TEST_CASE("Testing the radial problem") {
                       i += vpIterationsFactor, m_ += mStep * vpIterationsFactor) {
                      vmcp::VarParam bestParam{k_ * m_.val / std::pow(vmcp::hbar, 2)};
                      vmcp::ParamBounds<1> const parBound{
-                         NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
+                         NiceBound(bestParam, vmcp::minParamFactor, vmcp::maxParamFactor, vmcp::maxParDiff)};
                      vmcp::Energy const expectedEn{-k_ * k_ * m_.val / (2 * vmcp::hbar * vmcp::hbar)};
 vmcp::Positions<1, 1> const startPoss =
                         FindPeak_<1, 1>(wavefHO, vmcp::VarParams<1>{bestParam}, potHO, coordBounds,

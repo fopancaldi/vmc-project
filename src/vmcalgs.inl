@@ -107,8 +107,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> p
         // Add (car - tar)/tar to step, since it increases step if too many moves were accepted and decreases
         // it if too few were accepted
         FPType currentAcceptRate = succesfulUpdates * FPType{1} / (autocorrelationMoves_vmcLEPs * N);
-        // std::cout << "car: " << currentAcceptRate << '\n';
-        step *= currentAcceptRate / targetAcceptRate_vmcLEPs;
+        step *= (currentAcceptRate > targetAcceptRate_vmcLEPs ? FPType{11} / 10 : FPType{9} / 10);
     }
 
     return result;
@@ -153,9 +152,8 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, ParamBounds<V> bounds, 
     for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
         // The gradient descent should end in a reasonable time
         assert((i + 1) != maxLoops_gradDesc);
-
-        std::cout << "i: " << i << ""; // TODO: remove
-        std::cout << "  VP: " << currentParams[0].val << "\n";
+        // Better to be turned off if numWalkers_gradDesc != 1
+        std::cout << "Variational Parameter: " << currentParams[0].val << "\n";
 
         // Update the energy
         std::vector<LocEnAndPoss<D, N>> const currentLEPs = lepsCalc(currentParams);
@@ -192,12 +190,12 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, ParamBounds<V> bounds, 
         // Check the termination condition
         if (gradStep / currentParamsNorm < stoppingThreshold_gradDesc) {
             result.energy = currentEn;
-            result.stdDev = Statistics(currentLEPs, function, boostrapSamples, gen);
+            result.stdDev = ErrorOnAvg(currentLEPs, function, boostrapSamples, gen);
             result.bestParams = currentParams;
             break;
         } else {
             for (VarParNum v = 0u; v != V; ++v) {
-                FPType multiplier = 0.01f;
+                FPType multiplier = 0.02f;
                 while ((currentParams[v].val + multiplier * currentMomentum[v] > bounds[v].upper.val) ||
                        (currentParams[v].val + multiplier * currentMomentum[v] < bounds[v].lower.val)) {
                     multiplier /= 2;
@@ -236,7 +234,7 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
     if constexpr (V == VarParNum{0}) {
         VarParams<0u> const fakeParams{};
         std::vector<LocEnAndPoss<D, N>> const vmcLEPs = lepsCalc(fakeParams);
-        return VMCResult<0>{Mean(vmcLEPs), Statistics(vmcLEPs, function, boostrapSamples, gen),
+        return VMCResult<0>{Mean(vmcLEPs), ErrorOnAvg(vmcLEPs, function, boostrapSamples, gen),
                             VarParams<0>{}};
     } else {
         std::mutex m;

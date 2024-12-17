@@ -31,7 +31,7 @@ TEST_CASE("Testing Statistics") {
 
     SUBCASE("Testing BlockingOut") {
         vmcp::Energy const blockingStdDev =
-            Statistics(data, vmcp::StatFuncType::blocking, bootstrapSamples, gen);
+            ErrorOnAvg(data, vmcp::StatFuncType::blocking, bootstrapSamples, gen);
         CHECK(std::abs(blockingStdDev.val) < statisticsTolerance);
     }
 
@@ -48,7 +48,7 @@ TEST_CASE("Testing Statistics") {
 
         SUBCASE("Testing bootstrap with Gaussian data") {
             vmcp::Energy const bootstrapStdDev =
-                Statistics(data, vmcp::StatFuncType::bootstrap, bootstrapSamples, gen);
+                ErrorOnAvg(data, vmcp::StatFuncType::bootstrap, bootstrapSamples, gen);
             CHECK(std::abs(bootstrapStdDev.val) < statisticsTolerance);
         }
     }

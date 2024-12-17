@@ -162,7 +162,7 @@ TEST_CASE("Testing the harmonic oscillator") {
 
                     vmcp::VarParam const bestParam{m_[0].val * omega_ / vmcp::hbar};
                     vmcp::ParamBounds<1> const parBound{
-                        NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
+                        NiceBound(bestParam, vmcp::minParamFactor, vmcp::maxParamFactor, vmcp::maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
                     std::string const genericLogMes =
                         "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_);
