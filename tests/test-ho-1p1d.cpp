@@ -110,7 +110,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
                     }
-                    /* {
+                    {
                         // Importance sampling update, analytical derivative
                         std::string const logMes = impSampLogMes + ", " + anDerLogMes + ", " + genericLogMes;
                         vmcp::VMCResult<0> const vmcr = vmcp::VMCEnergy<1, 1, 0>(
@@ -120,7 +120,7 @@ TEST_CASE("Testing the harmonic oscillator") {
                         CHECK_MESSAGE(abs(vmcr.energy - expectedEn) <
                                           max(vmcr.stdDev * allowedStdDevs, stdDevTolerance),
                                       logMes);
-                    } */
+                    }
                     /* {
                         // Importance sampling update, numerical derivative
                         std::string const logMes = impSampLogMes + ", " + numDerLogMes + ", " + genericLogMes;
@@ -162,7 +162,7 @@ TEST_CASE("Testing the harmonic oscillator") {
 
                     vmcp::VarParam const bestParam{m_[0].val * omega_ / vmcp::hbar};
                     vmcp::ParamBounds<1> const parBound{
-                        NiceBound(bestParam, minParamFactor, maxParamFactor, maxParDiff)};
+                        NiceBound(bestParam, vmcp::minParamFactor, vmcp::maxParamFactor, vmcp::maxParDiff)};
                     vmcp::Energy const expectedEn{vmcp::hbar * omega_ / 2};
                     std::string const genericLogMes =
                         "mass: " + std::to_string(m_[0].val) + ", ang. vel.: " + std::to_string(omega_);

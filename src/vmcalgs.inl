@@ -82,7 +82,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> p
     if (useImpSamp) {
         update = std::function<IntType()>{[&]() {
             return ImportanceSamplingUpdate_<D, N>(wavef, params, useAnalytical, derivativeStep, grads,
-                                                   masses, poss, step, gen);
+                                                   masses, poss, gen);
         }};
     } else {
         update = std::function<IntType()>{
@@ -107,7 +107,7 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> p
         // Add (car - tar)/tar to step, since it increases step if too many moves were accepted and decreases
         // it if too few were accepted
         FPType currentAcceptRate = succesfulUpdates * FPType{1} / (autocorrelationMoves_vmcLEPs * N);
-        step *= currentAcceptRate / targetAcceptRate_vmcLEPs;
+        step *= (currentAcceptRate > targetAcceptRate_vmcLEPs ? FPType{11} / 10 : FPType{9} / 10);
     }
 
     return result;
@@ -128,13 +128,14 @@ VMCLocEnAndPoss_(Wavefunction const &wavef, Positions<D, N> poss, VarParams<V> p
 //! After having computed the gradient, if the proposed step would increase the energy too much, proposes a
 //! new step of half the length, and repeats.
 template <Dimension D, ParticNum N, VarParNum V, class Wavefunction, class LocEnAndPossCalculator>
-VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wavef,
+VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, ParamBounds<V> bounds, Wavefunction const &wavef,
                              LocEnAndPossCalculator const &lepsCalc, StatFuncType function,
                              IntType const &boostrapSamples, RandomGenerator &gen) {
     static_assert(IsWavefunction<D, N, V, Wavefunction>());
     static_assert(
         std::is_invocable_r_v<std::vector<LocEnAndPoss<D, N>>, LocEnAndPossCalculator, VarParams<V>>);
     static_assert(V != 0);
+    assert(!std::isnan(initialParams[0].val));
 
     // Use a gradient descent algorithm with termination condition: stop if the next step is too small
     // compared to the current parameters
@@ -151,6 +152,8 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
     for (IntType i = 0; i != maxLoops_gradDesc; ++i) {
         // The gradient descent should end in a reasonable time
         assert((i + 1) != maxLoops_gradDesc);
+        // Better to be turned off if numWalkers_gradDesc != 1
+        std::cout << "Variational Parameter: " << currentParams[0].val << "\n";
 
         // Update the energy
         std::vector<LocEnAndPoss<D, N>> const currentLEPs = lepsCalc(currentParams);
@@ -167,10 +170,10 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
                          gradStep]() mutable {
                             // FP TODO: Magic
                             FPType const result_ =
-                                -FPType{1} / 4 *
+                                -FPType{3} / 4 *
                                     (energiesIncreasedParam[v].val - energiesDecreasedParam[v].val) /
                                     (2 * gradStep) +
-                                FPType{3} / 4 * oldMomentum[v];
+                                FPType{1} / 4 * oldMomentum[v];
                             assert(!std::isnan(result_));
                             ++v;
                             return result_;
@@ -187,12 +190,20 @@ VMCResult<V> VMCRBestParams_(VarParams<V> initialParams, Wavefunction const &wav
         // Check the termination condition
         if (gradStep / currentParamsNorm < stoppingThreshold_gradDesc) {
             result.energy = currentEn;
-            result.stdDev = Statistics(currentLEPs, function, boostrapSamples, gen);
+            result.stdDev = ErrorOnAvg(currentLEPs, function, boostrapSamples, gen);
             result.bestParams = currentParams;
             break;
         } else {
-            std::transform(currentParams.begin(), currentParams.end(), currentMomentum.begin(),
-                           currentParams.begin(), [](VarParam cp, FPType cm) { return cp + VarParam{cm}; });
+            for (VarParNum v = 0u; v != V; ++v) {
+                FPType multiplier = 0.02f;
+                while ((currentParams[v].val + multiplier * currentMomentum[v] > bounds[v].upper.val) ||
+                       (currentParams[v].val + multiplier * currentMomentum[v] < bounds[v].lower.val)) {
+                    multiplier /= 2;
+                }
+                currentParams[v].val += multiplier * currentMomentum[v];
+            }
+            /*std::transform(currentParams.begin(), currentParams.end(), currentMomentum.begin(),
+                           currentParams.begin(), [](VarParam cp, FPType cm) { return cp + VarParam{cm}; });*/
             oldMomentum = currentMomentum;
         }
     }
@@ -223,7 +234,7 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
     if constexpr (V == VarParNum{0}) {
         VarParams<0u> const fakeParams{};
         std::vector<LocEnAndPoss<D, N>> const vmcLEPs = lepsCalc(fakeParams);
-        return VMCResult<0>{Mean(vmcLEPs), Statistics(vmcLEPs, function, boostrapSamples, gen),
+        return VMCResult<0>{Mean(vmcLEPs), ErrorOnAvg(vmcLEPs, function, boostrapSamples, gen),
                             VarParams<0>{}};
     } else {
         std::mutex m;
@@ -240,7 +251,7 @@ VMCResult<V> VMCRBestParams_(ParamBounds<V> bounds, Wavefunction const &wavef,
             for (VarParNum v = 0u; v != V; ++v) {
                 initialParams[v] = bounds[v].lower + bounds[v].Length() * unif(localGen);
             }
-            return VMCRBestParams_<D, N, V>(initialParams, wavef, lepsCalc, function, boostrapSamples,
+            return VMCRBestParams_<D, N, V>(initialParams, bounds, wavef, lepsCalc, function, boostrapSamples,
                                             localGen);
         });
 

@@ -65,9 +65,9 @@ constexpr IntType maxLoops_gradDesc = 100000;
 //! @brief The norm of the initial parameters divided by this gives the starting step for the gradient descent
 constexpr IntType stepDenom_gradDesc = 100;
 //! @brief When the gradient divided by the parameters' norm is smaller than this, stop the gradient descent
-constexpr FPType stoppingThreshold_gradDesc = 1e-9f;
+constexpr FPType stoppingThreshold_gradDesc = 1e-2f;
 //! @brief Number of independent gradient descents carried out simultaneously
-constexpr IntType numWalkers_gradDesc = 8;
+constexpr IntType numWalkers_gradDesc = 1;
 // FP TODO: Rename this one, and document
 constexpr IntType stepDenom_vmcLEPs = 100;
 //! @brief Number of updates after which the sampled local energies are uncorrelated
@@ -78,7 +78,16 @@ constexpr IntType autocorrelationMoves_vmcLEPs = 100;
 constexpr IntType movesForgetICs_vmcLEPs = 10 * autocorrelationMoves_vmcLEPs;
 //! @brief Optimal acceptance rate for the updates in the VMC algorithm
 constexpr FPType targetAcceptRate_vmcLEPs = 0.5f;
-
+//! @brief A factor used to try to establish the lower bound of the variational parameter
+//! @see NiceBound
+constexpr FPType minParamFactor = 0.33f;
+//! @brief A factor used to try to establish the upper bound of the variational parameter
+//! @see NiceBound
+constexpr FPType maxParamFactor = 3;
+//! @brief The maximum distance allowed between the value of the variational parameters and the
+//! value of a bound
+//! @see NiceBound
+constexpr VarParam maxParDiff{5};
 //! @}
 
 } // namespace vmcp

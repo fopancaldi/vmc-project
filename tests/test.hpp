@@ -41,18 +41,6 @@ static_assert((numEnergies % vpNumEnergiesFactor) == 0);
 // The number of samples for bootsrapping technique of statistical analysis
 constexpr vmcp::IntType bootstrapSamples = 10000;
 
-constexpr vmcp::FPType minParamFactor = 0.33f;
-constexpr vmcp::FPType maxParamFactor = 3;
-constexpr vmcp::VarParam maxParDiff{5};
-// Computes an interval for a variational parameter which is fairly large but allows the gradient descent to
-// converge in a reasonable time
-inline vmcp::Bound<vmcp::VarParam> NiceBound(vmcp::VarParam param, vmcp::FPType lowFactor,
-                                             vmcp::FPType highFactor, vmcp::VarParam maxDiff) {
-    vmcp::VarParam const low{std::max(param.val * lowFactor, param.val - maxDiff.val)};
-    vmcp::VarParam const high{std::min(param.val * highFactor, param.val + maxDiff.val)};
-    return vmcp::Bound<vmcp::VarParam>{low, high};
-}
-
 // Denominator to obtain the derivative step from the length of the integration region
 constexpr vmcp::FPType derivativeStepDenom = 100000;
 
